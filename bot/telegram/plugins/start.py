@@ -8,11 +8,11 @@ from bot.helper.media import is_media
 from bot.helper.topic_parser import parse_topic_hierarchy, get_or_create_folder_path
 from bot.telegram import StreamBot
 from pyrogram import filters, Client
-from pyrogram.types import Message
+from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from os.path import splitext
 from pyrogram.errors import FloodWait
 from pyrogram.enums.parse_mode import ParseMode
-from asyncio import sleep
+from asyncio import sleep, gather
 
 db = Database()
 
@@ -349,3 +349,325 @@ async def create_index(bot: Client, message: Message):
         import traceback
         traceback.print_exc()
         await message.reply(text=f"❌ Error: {str(e)}")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# /browse - Inline Keyboard Folder Browser
+# ═══════════════════════════════════════════════════════════════════
+
+ITEMS_PER_PAGE = 8  # items per page in folder view
+
+
+async def _get_auth_channels():
+    """Get list of authorized channels."""
+    AUTH_CHANNEL = await db.get_variable('auth_channel')
+    if AUTH_CHANNEL is None or AUTH_CHANNEL.strip() == '':
+        AUTH_CHANNEL = Telegram.AUTH_CHANNEL
+    else:
+        AUTH_CHANNEL = [channel.strip() for channel in AUTH_CHANNEL.split(",")]
+    return AUTH_CHANNEL
+
+
+async def _build_folder_keyboard(folder_id, channel_id, page=1):
+    """
+    Build inline keyboard for a folder showing sub-folders and files.
+    Returns (text, keyboard). Optimized: parallel queries, no redundant DB calls.
+    """
+    if folder_id != "root":
+        # Run items + folder info in parallel (2 queries instead of 7)
+        items_result, folder_info = await gather(
+            db.get_bot_items(folder_id, channel_id, page, ITEMS_PER_PAGE),
+            db.get_folder_with_parent(folder_id)
+        )
+        folders, files, has_more, sub_count, file_count = items_result
+        folder_name_str, parent_id, _ = folder_info
+    else:
+        folders, files, has_more, sub_count, file_count = await db.get_bot_items(folder_id, channel_id, page, ITEMS_PER_PAGE)
+        folder_name_str = None
+        parent_id = None
+    
+    buttons = []
+    
+    # Folder buttons (2 per row)
+    folder_row = []
+    for f in folders:
+        fid = str(f['_id'])
+        fname = f['name']
+        display_name = fname[:20] + "…" if len(fname) > 20 else fname
+        btn = InlineKeyboardButton(
+            f"📂 {display_name}",
+            callback_data=f"bf|{fid}|{channel_id}|1"
+        )
+        folder_row.append(btn)
+        if len(folder_row) == 2:
+            buttons.append(folder_row)
+            folder_row = []
+    if folder_row:
+        buttons.append(folder_row)
+    
+    # File buttons (1 per row)
+    for fi in files:
+        fid = fi.get('file_id', str(fi.get('msg_id', '')))
+        fname = fi.get('name', fi.get('title', 'File'))
+        fhash = fi.get('hash', '')
+        chat = fi.get('chat_id', channel_id)
+        display_name = fname[:28] + "…" if len(fname) > 28 else fname
+        ftype = fi.get('file_type', fi.get('type', ''))
+        
+        if 'video' in (ftype or '').lower():
+            icon = "🎬"
+        elif 'pdf' in (ftype or '').lower():
+            icon = "📕"
+        else:
+            icon = "📄"
+        
+        cb_data = f"bfi|{fid}|{chat}|{fhash}|{folder_id}"
+        if len(cb_data) > 64:
+            cb_data = cb_data[:64]
+        
+        buttons.append([InlineKeyboardButton(
+            f"{icon} {display_name}",
+            callback_data=cb_data
+        )])
+    
+    # Navigation row
+    nav_row = []
+    
+    # Back button - uses parent_id from get_folder_with_parent (no extra query)
+    if folder_id != "root":
+        if parent_id == "root":
+            nav_row.append(InlineKeyboardButton("⬅️ Back", callback_data=f"bch|{channel_id}"))
+        else:
+            nav_row.append(InlineKeyboardButton("⬅️ Back", callback_data=f"bf|{parent_id}|{channel_id}|1"))
+    else:
+        nav_row.append(InlineKeyboardButton("⬅️ Channels", callback_data="browse_home"))
+    
+    # Pagination row
+    import math
+    total_items = sub_count + file_count
+    total_pages = max(1, math.ceil(total_items / ITEMS_PER_PAGE))
+    
+    if total_pages > 1:
+        page_row = []
+        if page > 1:
+            page_row.append(InlineKeyboardButton("◀️ Prev", callback_data=f"bf|{folder_id}|{channel_id}|{page-1}"))
+        else:
+            page_row.append(InlineKeyboardButton("◀️ Prev", callback_data=f"bf|{folder_id}|{channel_id}|1"))
+        if has_more:
+            page_row.append(InlineKeyboardButton("Next ▶️", callback_data=f"bf|{folder_id}|{channel_id}|{page+1}"))
+        else:
+            page_row.append(InlineKeyboardButton("Next ▶️", callback_data=f"bf|{folder_id}|{channel_id}|{total_pages}"))
+        buttons.append(page_row)
+    
+    # Back button on its own row below pagination
+    buttons.append(nav_row)
+    
+    # Build text header - uses data already fetched (no extra query)
+    if folder_id == "root":
+        header = "📁 Root"
+    else:
+        header = f"📁 {folder_name_str}" if folder_name_str else "📁 Folder"
+    
+    text = (
+        f"{header}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"📂 {sub_count} Folders  |  📄 {file_count} Files\n"
+    )
+    
+    if not folders and not files:
+        text += "\n⚠️ This folder is empty."
+    
+    if total_pages > 1:
+        text += f"\n📄 Page {page}/{total_pages}"
+    
+    return text, InlineKeyboardMarkup(buttons) if buttons else None
+
+
+@StreamBot.on_message(filters.command('browse') & filters.private)
+async def browse_command(bot: Client, message: Message):
+    """Show channels to browse as inline keyboard buttons."""
+    try:
+        auth_channels = await _get_auth_channels()
+        
+        if not auth_channels:
+            await message.reply("❌ No channels configured.")
+            return
+        
+        buttons = []
+        for ch_id in auth_channels:
+            try:
+                chat = await StreamBot.get_chat(int(ch_id))
+                title = chat.title or chat.first_name or str(ch_id)
+                display = title[:30] + "…" if len(title) > 30 else title
+                buttons.append([InlineKeyboardButton(
+                    f"📺 {display}",
+                    callback_data=f"bch|{ch_id}"
+                )])
+            except Exception:
+                buttons.append([InlineKeyboardButton(
+                    f"📺 Channel {ch_id}",
+                    callback_data=f"bch|{ch_id}"
+                )])
+        
+        await message.reply(
+            "📚 **Browse Channel Files**\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "Select a channel to browse its files:",
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode=ParseMode.MARKDOWN
+        )
+    except Exception as e:
+        LOGGER.error(f"Browse command error: {e}")
+        await message.reply(f"❌ Error: {str(e)}")
+
+
+@StreamBot.on_callback_query(filters.regex(r'^browse_home$'))
+async def browse_home_callback(bot: Client, query: CallbackQuery):
+    """Go back to channel list."""
+    try:
+        auth_channels = await _get_auth_channels()
+        buttons = []
+        for ch_id in auth_channels:
+            try:
+                chat = await StreamBot.get_chat(int(ch_id))
+                title = chat.title or chat.first_name or str(ch_id)
+                display = title[:30] + "…" if len(title) > 30 else title
+                buttons.append([InlineKeyboardButton(
+                    f"📺 {display}",
+                    callback_data=f"bch|{ch_id}"
+                )])
+            except Exception:
+                buttons.append([InlineKeyboardButton(
+                    f"📺 Channel {ch_id}",
+                    callback_data=f"bch|{ch_id}"
+                )])
+        
+        await query.message.edit_text(
+            "📚 **Browse Channel Files**\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "Select a channel to browse its files:",
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode=ParseMode.MARKDOWN
+        )
+        await query.answer()
+    except Exception as e:
+        await query.answer(f"Error: {str(e)}", show_alert=True)
+
+
+@StreamBot.on_callback_query(filters.regex(r'^bch\|'))
+async def browse_channel_callback(bot: Client, query: CallbackQuery):
+    """User clicked a channel - show root folders."""
+    try:
+        _, channel_id = query.data.split("|", 1)
+        
+        try:
+            chat = await StreamBot.get_chat(int(channel_id))
+            channel_name = chat.title or "Channel"
+        except Exception:
+            channel_name = "Channel"
+        
+        text, keyboard = await _build_folder_keyboard("root", channel_id, page=1)
+        
+        header = f"📺 **{channel_name}**\n{text}"
+        
+        await query.message.edit_text(
+            header,
+            reply_markup=keyboard,
+            parse_mode=ParseMode.MARKDOWN
+        )
+        await query.answer()
+    except Exception as e:
+        LOGGER.error(f"Browse channel callback error: {e}")
+        await query.answer(f"Error: {str(e)}", show_alert=True)
+
+
+@StreamBot.on_callback_query(filters.regex(r'^bf\|'))
+async def browse_folder_callback(bot: Client, query: CallbackQuery):
+    """User clicked a folder - show its contents."""
+    try:
+        parts = query.data.split("|")
+        # bf|folder_id|channel_id|page
+        folder_id = parts[1]
+        channel_id = parts[2]
+        page = int(parts[3]) if len(parts) > 3 else 1
+        
+        text, keyboard = await _build_folder_keyboard(folder_id, channel_id, page)
+        
+        await query.message.edit_text(
+            text,
+            reply_markup=keyboard,
+            parse_mode=ParseMode.MARKDOWN
+        )
+        await query.answer()
+    except Exception as e:
+        LOGGER.error(f"Browse folder callback error: {e}")
+        await query.answer(f"Error: {str(e)}", show_alert=True)
+
+
+@StreamBot.on_callback_query(filters.regex(r'^bfi\|'))
+async def browse_file_callback(bot: Client, query: CallbackQuery):
+    """User clicked a file - show action menu."""
+    try:
+        parts = query.data.split("|")
+        # bfi|msg_id|chat_id|hash|folder_id
+        msg_id = parts[1]
+        chat_id = parts[2]
+        file_hash = parts[3] if len(parts) > 3 else ""
+        folder_id = parts[4] if len(parts) > 4 else "root"
+        
+        # Get file info from DB (fast) instead of Telegram API (slow)
+        fname = "File"
+        fsize = "?"
+        file_doc = db.collection.find_one({"file_id": int(msg_id), "chat_id": chat_id})
+        if file_doc:
+            fname = file_doc.get('name', file_doc.get('title', 'File'))
+            fsize = get_readable_file_size(file_doc.get('file_size', 0)) if file_doc.get('file_size') else "?"
+        
+        # Build URLs
+        clean_chat_id = str(chat_id).replace("-100", "")
+        base_url = Telegram.BASE_URL.rstrip('/')
+        watch_url = f"{base_url}/watch/{clean_chat_id}?id={msg_id}&hash={file_hash}"
+        msg_url = f"https://t.me/c/{clean_chat_id}/{msg_id}"
+        
+        # Action buttons
+        action_buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📥 Send to Bot", callback_data=f"bs|{msg_id}|{chat_id}")],
+            [InlineKeyboardButton("🌐 Watch/Stream", url=watch_url)],
+            [InlineKeyboardButton("💬 Jump to Message", url=msg_url)],
+            [InlineKeyboardButton("⬅️ Back", callback_data=f"bf|{folder_id}|{chat_id}|1")]
+        ])
+        
+        display_name = fname[:35] + "…" if len(fname) > 35 else fname
+        await query.message.edit_text(
+            f"📄 **{display_name}**\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"💾 Size: {fsize}\n\n"
+            f"Choose an action:",
+            reply_markup=action_buttons,
+            parse_mode=ParseMode.MARKDOWN
+        )
+        await query.answer()
+    except Exception as e:
+        LOGGER.error(f"Browse file callback error: {e}")
+        await query.answer(f"Error: {str(e)}", show_alert=True)
+
+
+@StreamBot.on_callback_query(filters.regex(r'^bs\|'))
+async def browse_send_file_callback(bot: Client, query: CallbackQuery):
+    """User chose 'Send to Bot' - send the file directly."""
+    try:
+        parts = query.data.split("|")
+        # bs|msg_id|chat_id
+        msg_id = parts[1]
+        chat_id = parts[2]
+        
+        await query.answer("📥 Sending file...")
+        
+        await bot.copy_message(
+            chat_id=query.from_user.id,
+            from_chat_id=int(chat_id),
+            message_id=int(msg_id)
+        )
+    except Exception as e:
+        LOGGER.error(f"Send file error: {e}")
+        await query.answer(f"❌ Error: {str(e)}", show_alert=True)

@@ -678,7 +678,7 @@
         if (otherCount === 0) document.querySelector('[data-tab="others-pane"]').style.display = "none";
 
         // === Sorting ===
-        var savedSort = localStorage.getItem('surfTgSort') || 'name-asc';
+        var savedSort = localStorage.getItem('surfTgSort') || 'newest';
 
         document.querySelectorAll(".sort-btn").forEach(function (btn) {
             btn.addEventListener("click", function () {

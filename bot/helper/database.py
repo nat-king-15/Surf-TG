@@ -12,6 +12,10 @@ class Database:
         self.collection = self.db["playlist"]
         self.config = self.db["config"]
         self.files = self.db["files"]
+        # Indexes for browse performance
+        self.collection.create_index([("parent_folder", 1), ("type", 1), ("source_channel", 1)], background=True)
+        self.collection.create_index([("parent_folder", 1), ("type", 1), ("chat_id", 1)], background=True)
+        self.collection.create_index([("file_id", 1), ("chat_id", 1)], background=True)
 
     async def create_folder(self, parent_id, folder_name, thumbnail):
         folder = {"parent_folder": parent_id, "name": folder_name,
@@ -41,7 +45,7 @@ class Database:
         regex_pattern = '.*'.join(f'(?=.*{re.escape(word)})' for word in words)
         regex_query = {'$regex': f'.*{regex_pattern}.*', '$options': 'i'}
         myquery = {'type': 'folder', 'name': regex_query}
-        mydoc = self.collection.find(myquery).sort('_id', DESCENDING)
+        mydoc = self.collection.find(myquery).sort('_id', ASCENDING)
         return [{'_id': str(x['_id']), 'name': x['name']} for x in mydoc]
 
     async def add_json(self, data):
@@ -60,7 +64,7 @@ class Database:
         query = {"parent_folder": parent_id, "type": "file"}
         offset = (int(page) - 1) * per_page
         return list(self.collection.find(query).sort(
-            'file_id', DESCENDING).skip(offset).limit(per_page))
+            'file_id', ASCENDING).skip(offset).limit(per_page))
 
     async def get_info(self, id):
         query = {'_id': ObjectId(id)}
@@ -76,7 +80,7 @@ class Database:
         query = {'type': 'file', 'parent_folder': id, 'name': regex_query}
         offset = (int(page) - 1) * per_page
         mydoc = self.collection.find(query).sort(
-            'file_id', DESCENDING).skip(offset).limit(per_page)
+            'file_id', ASCENDING).skip(offset).limit(per_page)
         return list(mydoc)
 
     async def update_config(self, theme, auth_channel):
@@ -100,7 +104,7 @@ class Database:
         query = {'chat_id': id}
         offset = (int(page) - 1) * per_page
         mydoc = self.files.find(query).sort(
-            'msg_id', DESCENDING).skip(offset).limit(per_page)
+            'msg_id', ASCENDING).skip(offset).limit(per_page)
         return list(mydoc)
 
     async def add_tgfiles(self, chat_id, file_id, hash, name, size, file_type):
@@ -118,7 +122,7 @@ class Database:
         query = {'chat_id': id, 'title': regex_query}
         offset = (int(page) - 1) * per_page
         mydoc = self.files.find(query).sort(
-            'msg_id', DESCENDING).skip(offset).limit(per_page)
+            'msg_id', ASCENDING).skip(offset).limit(per_page)
         return list(mydoc)
     
     async def add_btgfiles(self, data):
@@ -264,3 +268,60 @@ class Database:
             propagate_up(root_id)
         
         return folder_map, root_folders
+
+    async def get_bot_items(self, parent_id="root", channel_id=None, page=1, per_page=8):
+        """
+        Get folders + files for inline keyboard, folders first, with correct pagination.
+        Returns (folders_list, files_list, has_more, total_folders, total_files).
+        """
+        folder_query = {"parent_folder": parent_id, "type": "folder"}
+        file_query = {"parent_folder": parent_id, "type": "file"}
+        if channel_id:
+            folder_query["source_channel"] = channel_id
+            file_query["chat_id"] = channel_id
+
+        total_folders = self.collection.count_documents(folder_query)
+        total_files = self.collection.count_documents(file_query)
+        total_items = total_folders + total_files
+
+        offset = (int(page) - 1) * per_page
+        folders = []
+        files = []
+
+        if offset < total_folders:
+            folder_limit = min(per_page, total_folders - offset)
+            folders = list(self.collection.find(folder_query).sort('_id', ASCENDING).skip(offset).limit(folder_limit))
+            remaining = per_page - len(folders)
+            if remaining > 0 and total_files > 0:
+                files = list(self.collection.find(file_query).sort('file_id', ASCENDING).limit(remaining))
+        elif offset < total_items:
+            file_skip = offset - total_folders
+            files = list(self.collection.find(file_query).sort('file_id', ASCENDING).skip(file_skip).limit(per_page))
+
+        has_more = (offset + per_page) < total_items
+        return folders, files, has_more, total_folders, total_files
+
+    async def get_folder_with_parent(self, folder_id):
+        """Get folder name + parent info in a single query."""
+        doc = self.collection.find_one({'_id': ObjectId(folder_id)})
+        if doc:
+            return doc.get('name', 'Folder'), doc.get('parent_folder', 'root'), doc.get('source_channel', None)
+        return 'Folder', 'root', None
+
+    async def get_parent_folder(self, folder_id):
+        """Get parent folder ID for back navigation."""
+        query = {'_id': ObjectId(folder_id)}
+        doc = self.collection.find_one(query)
+        if doc:
+            return doc.get('parent_folder', 'root'), doc.get('source_channel', None)
+        return 'root', None
+
+    async def count_folder_children(self, folder_id, channel_id=None):
+        """Count sub-folders and files in a folder."""
+        folder_query = {"parent_folder": folder_id, "type": "folder"}
+        file_query = {"parent_folder": folder_id, "type": "file"}
+        if channel_id:
+            folder_query["source_channel"] = channel_id
+        folders = self.collection.count_documents(folder_query)
+        files = self.collection.count_documents(file_query)
+        return folders, files
