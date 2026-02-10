@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="icon" href="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/src/ico2.png" type="image/x-icon">
     <link rel="shortcut icon" href="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/src/ico2.png"
         type="image/x-icon">
@@ -31,6 +31,8 @@
             flex-direction: column;
             background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
             color: #e0e0e0;
+            -webkit-tap-highlight-color: transparent;
+            overflow-x: hidden;
         }
 
         a {
@@ -63,12 +65,13 @@
             cursor: pointer;
         }
 
-        /* Video player */
+        /* Video player wrapper */
         .video-wrapper {
             width: 100%;
             max-width: 900px;
             margin: 20px auto;
             padding: 0 16px;
+            position: relative;
         }
 
         .plyr {
@@ -78,6 +81,178 @@
 
         .plyr--video {
             box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        /* ── Touch overlay for double-tap seek ── */
+        .touch-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 10;
+            display: flex;
+            pointer-events: none;
+        }
+
+        .touch-zone {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            position: relative;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* Seek ripple animation */
+        .seek-indicator {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            opacity: 0;
+            transform: scale(0.7);
+            pointer-events: none;
+            transition: none;
+        }
+
+        .seek-indicator.show {
+            animation: seekPop 0.7s ease-out forwards;
+        }
+
+        .seek-indicator .seek-icon {
+            font-size: 2rem;
+            color: #fff;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        .seek-indicator .seek-text {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+        }
+
+        @keyframes seekPop {
+            0% {
+                opacity: 0;
+                transform: scale(0.6);
+            }
+
+            30% {
+                opacity: 1;
+                transform: scale(1.1);
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(1) translateY(-10px);
+            }
+        }
+
+        /* Seek ripple background */
+        .seek-ripple {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.12);
+            transform: scale(0);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .seek-ripple.animate {
+            animation: rippleExpand 0.5s ease-out;
+        }
+
+        @keyframes rippleExpand {
+            0% {
+                transform: scale(0);
+                opacity: 0.4;
+            }
+
+            100% {
+                transform: scale(3);
+                opacity: 0;
+            }
+        }
+
+        /* Long-press speed indicator */
+        .speed-indicator {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(10px);
+            color: #fff;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 20;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .speed-indicator.show {
+            opacity: 1;
+        }
+
+        .speed-indicator i {
+            font-size: 0.9rem;
+        }
+
+        /* Volume/Brightness gesture overlay */
+        .gesture-bar {
+            position: absolute;
+            z-index: 25;
+            width: 4px;
+            height: 40%;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.15);
+            top: 30%;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+        }
+
+        .gesture-bar.left {
+            left: 20px;
+        }
+
+        .gesture-bar.right {
+            right: 20px;
+        }
+
+        .gesture-bar .fill {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            border-radius: 4px;
+            background: #00d4ff;
+            transition: height 0.1s;
+        }
+
+        .gesture-bar .icon {
+            position: absolute;
+            top: -28px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1rem;
+            color: #fff;
+        }
+
+        .gesture-bar.show {
+            opacity: 1;
         }
 
         /* File info card */
@@ -137,7 +312,8 @@
             text-align: center;
         }
 
-        .action-btn:hover {
+        .action-btn:hover,
+        .action-btn:active {
             background: rgba(0, 212, 255, 0.1);
             border-color: rgba(0, 212, 255, 0.2);
             color: #00d4ff;
@@ -173,6 +349,21 @@
             .actions {
                 grid-template-columns: repeat(2, 1fr);
             }
+
+            .video-wrapper {
+                padding: 0 8px;
+                margin: 12px auto;
+            }
+
+            .plyr {
+                border-radius: 10px;
+            }
+        }
+
+        /* Fullscreen styles */
+        .plyr--fullscreen-active .touch-overlay,
+        .plyr:fullscreen .touch-overlay {
+            border-radius: 0;
         }
     </style>
 </head>
@@ -187,10 +378,44 @@
         </form>
     </nav>
 
-    <div class="video-wrapper">
+    <div class="video-wrapper" id="videoWrapper">
         <video controls crossorigin playsinline data-poster="<!-- Poster -->" id="player">
             <source src="#" type="video/mp4" />
         </video>
+
+        <!-- Touch overlay for gestures -->
+        <div class="touch-overlay" id="touchOverlay">
+            <div class="touch-zone" id="zoneLeft">
+                <div class="seek-ripple" id="rippleLeft"></div>
+                <div class="seek-indicator" id="seekLeft">
+                    <span class="seek-icon">
+                        <i class="bi bi-skip-backward-fill"></i>
+                    </span>
+                    <span class="seek-text">20s</span>
+                </div>
+            </div>
+            <div class="touch-zone" id="zoneRight">
+                <div class="seek-ripple" id="rippleRight"></div>
+                <div class="seek-indicator" id="seekRight">
+                    <span class="seek-icon">
+                        <i class="bi bi-skip-forward-fill"></i>
+                    </span>
+                    <span class="seek-text">20s</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Speed indicator for long press -->
+        <div class="speed-indicator" id="speedIndicator">
+            <i class="bi bi-fast-forward-fill"></i>
+            <span>2x Speed</span>
+        </div>
+
+        <!-- Volume gesture bar -->
+        <div class="gesture-bar right" id="volumeBar">
+            <span class="icon"><i class="bi bi-volume-up-fill"></i></span>
+            <div class="fill" id="volumeFill"></div>
+        </div>
     </div>
 
     <div class="file-info">
@@ -215,6 +440,7 @@
     </div>
 </body>
 <script>
+    // ── URL setup ───────────────────────────────────────────────────────────
     const videolink = window.location.href;
     const url = new URL(videolink);
     const domainUrl = url.origin;
@@ -225,13 +451,19 @@
     const encodedName = encodeURIComponent('<!-- Filename -->');
     const downloadlink = `${domainUrl}/${videoId}/${encodedName}?id=${idParam}&hash=${hashParam}`;
 
+    // ── Plyr init ───────────────────────────────────────────────────────────
     const player = new Plyr('#player', {
-        controls: ['play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen', 'pip', 'airplay', 'settings', "play-large", 'duration'],
-        hideControls: false,
+        controls: ['play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen', 'pip', 'airplay', 'settings', 'play-large', 'duration'],
+        settings: ['speed'],
+        speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
+        hideControls: true,
         keyboard: { focused: true, global: true },
         loop: { active: false },
+        tooltips: { controls: true, seek: true },
+        invertTime: false,
     });
 
+    // ── External player buttons ─────────────────────────────────────────────
     function mx_player() {
         window.location.href = `intent:${downloadlink}#Intent;package=com.mxtech.videoplayer.ad;end`;
     }
@@ -258,10 +490,285 @@
             .then(() => alert('URL copied to clipboard!'))
             .catch((error) => console.error('Failed to copy URL: ', error));
     }
+
+    // ── Load video source ───────────────────────────────────────────────────
     function updateVideoSource() {
         document.getElementById('player').src = downloadlink;
     }
     window.onload = function () { updateVideoSource(); };
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ── MOBILE TOUCH GESTURES ──────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+
+    const isMobile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    const SEEK_SECONDS = 20;
+
+    // Position touch overlay to match the Plyr container
+    function positionOverlay() {
+        const wrapper = document.getElementById('videoWrapper');
+        const plyrEl = wrapper.querySelector('.plyr');
+        const overlay = document.getElementById('touchOverlay');
+        if (plyrEl && overlay) {
+            overlay.style.top = plyrEl.offsetTop + 'px';
+            overlay.style.left = plyrEl.offsetLeft + 'px';
+            overlay.style.width = plyrEl.offsetWidth + 'px';
+            overlay.style.height = plyrEl.offsetHeight + 'px';
+            overlay.style.borderRadius = getComputedStyle(plyrEl).borderRadius;
+
+            // Also update the speed indicator position
+            const speedInd = document.getElementById('speedIndicator');
+            speedInd.style.top = (plyrEl.offsetTop + 12) + 'px';
+
+            // Volume bar
+            const volBar = document.getElementById('volumeBar');
+            volBar.style.top = (plyrEl.offsetTop + plyrEl.offsetHeight * 0.3) + 'px';
+            volBar.style.height = (plyrEl.offsetHeight * 0.4) + 'px';
+        }
+    }
+
+    player.on('ready', positionOverlay);
+    window.addEventListener('resize', positionOverlay);
+    setTimeout(positionOverlay, 500);
+
+    // ── 1. DOUBLE-TAP TO SEEK ±20s ─────────────────────────────────────────
+    let tapTimeout = null;
+    let tapCount = 0;
+    let lastTapZone = null;
+
+    function showSeekAnimation(side) {
+        const indicator = document.getElementById(side === 'left' ? 'seekLeft' : 'seekRight');
+        const ripple = document.getElementById(side === 'left' ? 'rippleLeft' : 'rippleRight');
+
+        // Reset animation
+        indicator.classList.remove('show');
+        ripple.classList.remove('animate');
+        void indicator.offsetWidth; // force reflow
+
+        indicator.classList.add('show');
+        ripple.classList.add('animate');
+
+        setTimeout(() => {
+            indicator.classList.remove('show');
+            ripple.classList.remove('animate');
+        }, 700);
+    }
+
+    function handleDoubleTap(side) {
+        if (side === 'left') {
+            player.currentTime = Math.max(0, player.currentTime - SEEK_SECONDS);
+        } else {
+            player.currentTime = Math.min(player.duration || Infinity, player.currentTime + SEEK_SECONDS);
+        }
+        showSeekAnimation(side);
+    }
+
+    // ── 2. LONG PRESS FOR 2x SPEED ─────────────────────────────────────────
+    let longPressTimer = null;
+    let isLongPress = false;
+    let originalSpeed = 1;
+    const speedIndicator = document.getElementById('speedIndicator');
+
+    function startLongPress() {
+        originalSpeed = player.speed;
+        longPressTimer = setTimeout(() => {
+            isLongPress = true;
+            player.speed = 2;
+            speedIndicator.classList.add('show');
+            // Haptic feedback if available
+            if (navigator.vibrate) navigator.vibrate(30);
+        }, 500);
+    }
+
+    function endLongPress() {
+        clearTimeout(longPressTimer);
+        if (isLongPress) {
+            player.speed = originalSpeed;
+            speedIndicator.classList.remove('show');
+            isLongPress = false;
+        }
+    }
+
+    // ── 3. VERTICAL SWIPE FOR VOLUME ────────────────────────────────────────
+    let swipeStartY = null;
+    let swipeStartVolume = 0;
+    let isSwiping = false;
+    let swipeSide = null;
+    const volumeBar = document.getElementById('volumeBar');
+    const volumeFill = document.getElementById('volumeFill');
+
+    function handleSwipeStart(e, side) {
+        const touch = e.touches[0];
+        swipeStartY = touch.clientY;
+        swipeStartVolume = player.volume;
+        swipeSide = side;
+    }
+
+    function handleSwipeMove(e) {
+        if (swipeStartY === null) return;
+        const touch = e.touches[0];
+        const deltaY = swipeStartY - touch.clientY;
+        const zone = e.currentTarget;
+        const sensitivity = zone.offsetHeight * 0.6;
+
+        if (Math.abs(deltaY) > 10) {
+            isSwiping = true;
+            e.preventDefault();
+        }
+
+        if (isSwiping && swipeSide === 'right') {
+            // Volume control on right side
+            const volumeChange = deltaY / sensitivity;
+            const newVolume = Math.max(0, Math.min(1, swipeStartVolume + volumeChange));
+            player.volume = newVolume;
+            player.muted = false;
+
+            volumeBar.classList.add('show');
+            volumeFill.style.height = (newVolume * 100) + '%';
+
+            const icon = volumeBar.querySelector('.icon i');
+            if (newVolume === 0) icon.className = 'bi bi-volume-mute-fill';
+            else if (newVolume < 0.5) icon.className = 'bi bi-volume-down-fill';
+            else icon.className = 'bi bi-volume-up-fill';
+        }
+    }
+
+    function handleSwipeEnd() {
+        swipeStartY = null;
+        isSwiping = false;
+        swipeSide = null;
+        setTimeout(() => {
+            volumeBar.classList.remove('show');
+        }, 500);
+    }
+
+    // ── Attach touch handlers to zones ──────────────────────────────────────
+    ['zoneLeft', 'zoneRight'].forEach(zoneId => {
+        const zone = document.getElementById(zoneId);
+        const side = zoneId === 'zoneLeft' ? 'left' : 'right';
+
+        // Touch events
+        zone.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 1) return;
+            handleSwipeStart(e, side);
+            startLongPress();
+
+            tapCount++;
+            lastTapZone = side;
+
+            if (tapCount === 1) {
+                tapTimeout = setTimeout(() => {
+                    // Single tap — toggle play/pause
+                    if (!isSwiping && !isLongPress) {
+                        if (player.playing) player.pause();
+                        else player.play();
+                    }
+                    tapCount = 0;
+                }, 300);
+            } else if (tapCount >= 2) {
+                // Double tap
+                clearTimeout(tapTimeout);
+                if (!isSwiping) {
+                    handleDoubleTap(side);
+                }
+                tapCount = 0;
+            }
+        }, { passive: false });
+
+        zone.addEventListener('touchmove', (e) => {
+            clearTimeout(longPressTimer);
+            handleSwipeMove(e);
+        }, { passive: false });
+
+        zone.addEventListener('touchend', () => {
+            endLongPress();
+            handleSwipeEnd();
+        });
+
+        zone.addEventListener('touchcancel', () => {
+            endLongPress();
+            handleSwipeEnd();
+            tapCount = 0;
+        });
+
+        // Mouse double-click for desktop
+        zone.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            handleDoubleTap(side);
+        });
+    });
+
+    // ── 4. LANDSCAPE FULLSCREEN ─────────────────────────────────────────────
+    player.on('enterfullscreen', () => {
+        // Force landscape orientation on mobile
+        try {
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(() => { });
+            }
+        } catch (e) { }
+        positionOverlay();
+    });
+
+    player.on('exitfullscreen', () => {
+        // Unlock orientation
+        try {
+            if (screen.orientation && screen.orientation.unlock) {
+                screen.orientation.unlock();
+            }
+        } catch (e) { }
+        positionOverlay();
+    });
+
+    // Auto-enter fullscreen when phone is rotated to landscape while playing
+    if (isMobile && screen.orientation) {
+        screen.orientation.addEventListener('change', () => {
+            if (screen.orientation.type.includes('landscape') && player.playing && !player.fullscreen.active) {
+                player.fullscreen.enter();
+            }
+        });
+    }
+
+    // ── 5. KEYBOARD SHORTCUTS (desktop) ─────────────────────────────────────
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        switch (e.key) {
+            case 'ArrowLeft':
+                e.preventDefault();
+                player.currentTime = Math.max(0, player.currentTime - SEEK_SECONDS);
+                showSeekAnimation('left');
+                break;
+            case 'ArrowRight':
+                e.preventDefault();
+                player.currentTime = Math.min(player.duration || Infinity, player.currentTime + SEEK_SECONDS);
+                showSeekAnimation('right');
+                break;
+        }
+    });
+
+    // ── 6. REMEMBER PLAYBACK POSITION ───────────────────────────────────────
+    const storageKey = `plyr_pos_${idParam}`;
+
+    player.on('timeupdate', () => {
+        if (player.currentTime > 5) {
+            try { localStorage.setItem(storageKey, player.currentTime); } catch (e) { }
+        }
+    });
+
+    player.on('ready', () => {
+        try {
+            const savedPos = parseFloat(localStorage.getItem(storageKey));
+            if (savedPos && savedPos > 5 && savedPos < (player.duration - 10)) {
+                player.currentTime = savedPos;
+            }
+        } catch (e) { }
+    });
+
+    // Clean up stored position when video ends
+    player.on('ended', () => {
+        try { localStorage.removeItem(storageKey); } catch (e) { }
+    });
+
 </script>
 
 </html>
