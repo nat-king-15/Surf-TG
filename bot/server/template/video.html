@@ -690,16 +690,38 @@
             }
         });
 
-        // Double-click on left/right = seek (prevent fullscreen toggle)
+        // ── BLOCK ALL dblclick on video area (capture phase = fires BEFORE Plyr) ──
+        // This completely prevents Plyr from toggling fullscreen on double-click/tap
         plyrEl.addEventListener('dblclick', (e) => {
             if (isControlElement(e.target)) return;
             e.preventDefault();
             e.stopPropagation();
+            e.stopImmediatePropagation();
             const zone = getZone(e.clientX);
             if (zone === 'left' || zone === 'right') {
                 doSeek(zone);
             }
-        });
+        }, true); // true = capture phase
+
+        // Also block on the video element directly
+        const videoEl = plyrEl.querySelector('video');
+        if (videoEl) {
+            videoEl.addEventListener('dblclick', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+            }, true);
+        }
+
+        // Block on the plyr wrapper too
+        const plyrVideoWrap = plyrEl.querySelector('.plyr__video-wrapper');
+        if (plyrVideoWrap) {
+            plyrVideoWrap.addEventListener('dblclick', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+            }, true);
+        }
     }
 
     // ── LANDSCAPE FULLSCREEN ────────────────────────────────────────────────
