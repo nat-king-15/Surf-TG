@@ -12,10 +12,36 @@ class Database:
         self.collection = self.db["playlist"]
         self.config = self.db["config"]
         self.files = self.db["files"]
+        # Auto-migrate string file_ids to int for proper numeric sorting
+        self._migrate_file_ids()
         # Indexes for browse performance
         self.collection.create_index([("parent_folder", 1), ("type", 1), ("source_channel", 1)], background=True)
         self.collection.create_index([("parent_folder", 1), ("type", 1), ("chat_id", 1)], background=True)
         self.collection.create_index([("file_id", 1), ("chat_id", 1)], background=True)
+
+    def _migrate_file_ids(self):
+        """Convert string file_ids/msg_ids to int for proper numeric sorting."""
+        try:
+            # Migrate playlist collection (file_id)
+            for doc in self.collection.find({"file_id": {"$type": "string"}}):
+                try:
+                    self.collection.update_one(
+                        {"_id": doc["_id"]},
+                        {"$set": {"file_id": int(doc["file_id"])}}
+                    )
+                except (ValueError, TypeError):
+                    pass
+            # Migrate files collection (msg_id)
+            for doc in self.files.find({"msg_id": {"$type": "string"}}):
+                try:
+                    self.files.update_one(
+                        {"_id": doc["_id"]},
+                        {"$set": {"msg_id": int(doc["msg_id"])}}
+                    )
+                except (ValueError, TypeError):
+                    pass
+        except Exception:
+            pass  # Don't block startup
 
     async def create_folder(self, parent_id, folder_name, thumbnail):
         folder = {"parent_folder": parent_id, "name": folder_name,
@@ -180,7 +206,7 @@ class Database:
         # Also add to playlist collection for folder view if folder_id provided
         if folder_id:
             existing_in_playlist = self.collection.find_one({
-                "chat_id": chat_id, "file_id": file_id, "parent_folder": folder_id, "type": "file"
+                "chat_id": chat_id, "file_id": int(file_id), "parent_folder": folder_id, "type": "file"
             })
             if not existing_in_playlist:
                 # Thumbnail URL from the channel's thumbnail API
@@ -188,7 +214,7 @@ class Database:
                 playlist_file = {
                     "chat_id": chat_id,
                     "parent_folder": folder_id,
-                    "file_id": file_id,
+                    "file_id": int(file_id),
                     "hash": hash,
                     "name": name,
                     "size": size,
