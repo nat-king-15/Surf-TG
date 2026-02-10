@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from pyrogram import utils, raw
-from pyrogram.errors import AuthBytesInvalid, FloodWait
+from pyrogram.errors import AuthBytesInvalid
 from pyrogram.file_id import FileId, FileType, ThumbnailSource
 from pyrogram.session import Session, Auth
 from typing import Dict, Union
@@ -16,7 +16,6 @@ class ByteStreamer:
         self.clean_timer = 30 * 60
         self.client: Client = client
         self.__cached_file_ids: Dict[int, FileId] = {}
-        self._media_session_locks: Dict[int, asyncio.Lock] = {}
         asyncio.create_task(self.clean_cache())
 
     async def get_file_properties(self, chat_id: int, message_id: int) -> FileId:
@@ -69,16 +68,8 @@ class ByteStreamer:
             work_loads[index] -= 1
 
     async def generate_media_session(self, client: Client, file_id: FileId) -> Session:
-        # Use a lock per DC to prevent thundering herd
-        if file_id.dc_id not in self._media_session_locks:
-            self._media_session_locks[file_id.dc_id] = asyncio.Lock()
-
-        async with self._media_session_locks[file_id.dc_id]:
-            media_session = client.media_sessions.get(file_id.dc_id, None)
-            if media_session is not None:
-                logging.debug(f"Using cached media session for DC {file_id.dc_id}")
-                return media_session
-
+        media_session = client.media_sessions.get(file_id.dc_id, None)
+        if media_session is None:
             if file_id.dc_id != await client.storage.dc_id():
                 media_session = Session(client,
                                         file_id.dc_id,
@@ -87,17 +78,7 @@ class ByteStreamer:
                                         is_media=True)
                 await media_session.start()
                 for _ in range(6):
-                    try:
-                        exported_auth = await client.invoke(raw.functions.auth.ExportAuthorization(dc_id=file_id.dc_id))
-                    except FloodWait as e:
-                        if e.value <= 30:
-                            logging.warning(f"FloodWait on ExportAuthorization for DC {file_id.dc_id}, waiting {e.value}s")
-                            await asyncio.sleep(e.value)
-                            continue
-                        else:
-                            logging.error(f"FloodWait too long ({e.value}s) for DC {file_id.dc_id}, aborting")
-                            await media_session.stop()
-                            raise
+                    exported_auth = await client.invoke(raw.functions.auth.ExportAuthorization(dc_id=file_id.dc_id))
                     try:
                         await media_session.send(raw.functions.auth.ImportAuthorization(id=exported_auth.id, bytes=exported_auth.bytes))
                         break
@@ -117,7 +98,9 @@ class ByteStreamer:
                 await media_session.start()
             logging.debug(f"Created media session for DC {file_id.dc_id}")
             client.media_sessions[file_id.dc_id] = media_session
-            return media_session
+        else:
+            logging.debug(f"Using cached media session for DC {file_id.dc_id}")
+        return media_session
 
     @staticmethod
     async def get_location(file_id: FileId) -> Union[raw.types.InputPhotoFileLocation, raw.types.InputDocumentFileLocation, raw.types.InputPeerPhotoFileLocation]:

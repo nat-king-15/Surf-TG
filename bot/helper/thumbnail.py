@@ -22,4 +22,4 @@ async def get_image(chat_id, message_id):
         return img
     except Exception as e:
         LOGGER.error(f"Generate Img Error: {e}")
-        return path
+        return
