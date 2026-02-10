@@ -618,10 +618,16 @@ async def browse_file_callback(bot: Client, query: CallbackQuery):
         # Get file info from DB (fast) instead of Telegram API (slow)
         fname = "File"
         fsize = "?"
-        file_doc = db.collection.find_one({"file_id": int(msg_id), "chat_id": chat_id})
+        # Try both int and string types for file_id/chat_id to handle type mismatches
+        file_doc = db.collection.find_one({"file_id": int(msg_id), "chat_id": chat_id, "type": "file"})
+        if not file_doc:
+            file_doc = db.collection.find_one({"file_id": int(msg_id), "chat_id": int(chat_id), "type": "file"})
+        if not file_doc:
+            file_doc = db.collection.find_one({"file_id": str(msg_id), "chat_id": chat_id, "type": "file"})
         if file_doc:
             fname = file_doc.get('name', file_doc.get('title', 'File'))
-            fsize = get_readable_file_size(file_doc.get('file_size', 0)) if file_doc.get('file_size') else "?"
+            raw_size = file_doc.get('size', file_doc.get('file_size', 0))
+            fsize = get_readable_file_size(raw_size) if raw_size else "?"
         
         # Build URLs
         clean_chat_id = str(chat_id).replace("-100", "")
