@@ -7,3 +7,4 @@ python-dotenv
 TgCrypto-pyrofork
 
 pymongo
+uvloop
