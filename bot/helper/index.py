@@ -5,6 +5,7 @@ from bot.helper.database import Database
 from bot.telegram import StreamBot, UserBot
 from bot.helper.file_size import get_readable_file_size
 from bot.helper.cache import get_cache, save_cache
+from bot.helper.chats import _get_file_fallback
 from asyncio import gather
 
 db = Database()
@@ -31,7 +32,7 @@ async def get_messages(chat_id, first_message_id, last_message_id, batch_size=50
                     caption = message.caption or ""
                     title = file.file_name or caption or file.file_id
                     title, _ = splitext(title)
-                    title = re.sub(r'[.,|_\',]', ' ', title)
+                    title = re.sub(r"[.,|_\\',]", ' ', title)
                     messages.append({
                         "msg_id": message.id, 
                         "title": title,
@@ -39,7 +40,7 @@ async def get_messages(chat_id, first_message_id, last_message_id, batch_size=50
                         "size": get_readable_file_size(file.file_size),
                         "type": file.mime_type, 
                         "chat_id": str(chat_id),
-                        "caption": caption  # Include caption for topic parsing
+                        "caption": caption
                     })
         current_message_id += batch_size
     return messages
@@ -57,7 +58,7 @@ async def get_files(chat_id, page=1):
             continue
         title = file.file_name or post.caption or file.file_id
         title, _ = splitext(title)
-        title = re.sub(r'[.,|_\',]', ' ', title)
+        title = re.sub(r"[.,|_\\',]", ' ', title)
         posts.append({"msg_id": post.id, "title": title,
                     "hash": file.file_unique_id[:6], "size": get_readable_file_size(file.file_size), "type": file.mime_type})
     save_cache(chat_id, {"posts": posts}, page)
@@ -72,7 +73,8 @@ async def posts_file(posts, chat_id):
                             onchange="checkSendButton()" id="selectCheckbox"
                             data-id="{id}|{hash}|{title}|{size}|{type}|{img}">
                         <img src="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/src/loading.gif" class="lzy_img card-img-top rounded-top"
-                            data-src="{img}" alt="{title}">
+                            data-src="{img}" alt="{title}"
+                            onerror="this.onerror=null;this.src='{fallback}'">
                         <a href="/watch/{chat_id}?id={id}&hash={hash}">
                         <div class="card-body p-1">
                             <h6 class="card-title">{title}</h6>
@@ -84,4 +86,4 @@ async def posts_file(posts, chat_id):
                 
             </div>
 """
-    return ''.join(phtml.format(chat_id=str(chat_id).replace("-100", ""), id=post["msg_id"], img=f"/api/thumb/{chat_id}?id={post['msg_id']}", title=post["title"], hash=post["hash"], size=post['size'], type=post['type']) for post in posts)
+    return ''.join(phtml.format(chat_id=str(chat_id).replace("-100", ""), id=post["msg_id"], img=f"/api/thumb/{chat_id}?id={post['msg_id']}", title=post["title"], hash=post["hash"], size=post['size'], type=post['type'], fallback=_get_file_fallback(post.get('type', ''))) for post in posts)
