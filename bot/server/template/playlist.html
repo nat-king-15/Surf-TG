@@ -537,10 +537,11 @@
         <!-- Sort Controls -->
         <div class="sort-row">
             <span class="sort-label">Sort:</span>
-            <button class="sort-btn active" data-sort="name-asc">A→Z</button>
+            <button class="sort-btn active" data-sort="default">Default</button>
+            <button class="sort-btn" data-sort="name-asc">A→Z</button>
             <button class="sort-btn" data-sort="name-desc">Z→A</button>
-            <button class="sort-btn" data-sort="newest">New</button>
-            <button class="sort-btn" data-sort="oldest">Old</button>
+            <button class="sort-btn" data-sort="newest">Newest</button>
+            <button class="sort-btn" data-sort="oldest">Oldest</button>
             <button class="sort-btn" data-sort="size-desc">Size↓</button>
             <button class="sort-btn" data-sort="size-asc">Size↑</button>
         </div>
@@ -678,7 +679,7 @@
         if (otherCount === 0) document.querySelector('[data-tab="others-pane"]').style.display = "none";
 
         // === Sorting ===
-        var savedSort = localStorage.getItem('surfTgSort') || 'newest';
+        var savedSort = localStorage.getItem('surfTgSort') || 'default';
 
         document.querySelectorAll(".sort-btn").forEach(function (btn) {
             btn.addEventListener("click", function () {
@@ -713,9 +714,12 @@
                     const tB = (b.querySelector(".card-title") || {}).textContent || "";
                     if (sortType === "name-asc") return tA.localeCompare(tB);
                     if (sortType === "name-desc") return tB.localeCompare(tA);
+                    if (sortType === "default") {
+                        return 0; // preserve server order (file_id ascending)
+                    }
                     if (sortType === "newest" || sortType === "oldest") {
                         const iA = items.indexOf(a), iB = items.indexOf(b);
-                        return sortType === "newest" ? iA - iB : iB - iA;
+                        return sortType === "newest" ? iB - iA : iA - iB;
                     }
                     if (sortType === "size-desc" || sortType === "size-asc") {
                         const sA = parseSize((a.querySelector(".badge.bg-info") || {}).textContent || "0");
