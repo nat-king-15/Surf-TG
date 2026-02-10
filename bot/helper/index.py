@@ -37,7 +37,7 @@ async def get_messages(chat_id, first_message_id, last_message_id, batch_size=50
                         "msg_id": message.id, 
                         "title": title,
                         "hash": file.file_unique_id[:6], 
-                        "size": get_readable_file_size(file.file_size),
+                        "size": file.file_size or 0,
                         "type": file.mime_type, 
                         "chat_id": str(chat_id),
                         "caption": caption
@@ -86,4 +86,10 @@ async def posts_file(posts, chat_id):
                 
             </div>
 """
-    return ''.join(phtml.format(chat_id=str(chat_id).replace("-100", ""), id=post["msg_id"], img=f"/api/thumb/{chat_id}?id={post['msg_id']}", title=post["title"], hash=post["hash"], size=post['size'], type=post['type'], fallback=_get_file_fallback(post.get('type', ''))) for post in posts)
+    def _format_size(s):
+        if isinstance(s, (int, float)) and s > 0:
+            return get_readable_file_size(int(s))
+        if isinstance(s, str) and s:
+            return s
+        return "?"
+    return ''.join(phtml.format(chat_id=str(chat_id).replace("-100", ""), id=post["msg_id"], img=f"/api/thumb/{chat_id}?id={post['msg_id']}", title=post["title"], hash=post["hash"], size=_format_size(post.get('size', 0)), type=post['type'], fallback=_get_file_fallback(post.get('type', ''))) for post in posts)

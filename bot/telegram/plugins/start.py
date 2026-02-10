@@ -129,7 +129,7 @@ async def file_receive_handler(bot: Client, message: Message):
             title = re.sub(r'[.,|_\',]', ' ', title)
             msg_id = message.id
             hash = file.file_unique_id[:6]
-            size = get_readable_file_size(file.file_size)
+            size = file.file_size or 0
             type = file.mime_type
             
             # Parse Topic hierarchy from caption
@@ -140,7 +140,7 @@ async def file_receive_handler(bot: Client, message: Message):
                 LOGGER.info(f"Auto-created folder path: {' -> '.join(topic_path)} for file: {title}")
             
             # Add file with folder reference
-            await db.add_tgfile_with_folder(str(channel_id), str(msg_id), str(hash), str(title), str(size), str(type), folder_id)
+            await db.add_tgfile_with_folder(str(channel_id), str(msg_id), str(hash), str(title), size, str(type), folder_id)
         except FloodWait as e:
             LOGGER.info(f"Sleeping for {str(e.value)}s")
             await sleep(e.value)
@@ -627,7 +627,13 @@ async def browse_file_callback(bot: Client, query: CallbackQuery):
         if file_doc:
             fname = file_doc.get('name', file_doc.get('title', 'File'))
             raw_size = file_doc.get('size', file_doc.get('file_size', 0))
-            fsize = get_readable_file_size(raw_size) if raw_size else "?"
+            if isinstance(raw_size, str) and not raw_size.isdigit():
+                # Legacy: size stored as readable string like '117.74 MB'
+                fsize = raw_size
+            elif raw_size is not None:
+                fsize = get_readable_file_size(int(raw_size))
+            else:
+                fsize = "?"
         
         # Build URLs
         clean_chat_id = str(chat_id).replace("-100", "")
