@@ -45,19 +45,18 @@ async def post_playlist(playlists):
     dhtml = """
     <div class="col">
 
-        <div class="card profile-card mb-2">
+        <div class="card profile-card mb-2" style="cursor: pointer;">
             <a href="" onclick="openEditPopupForm(event, '{img}', '{ctype}', '{cid}', '{title}')"
                 class="admin-only position-absolute top-0 end-0 m-2" data-bs-toggle="modal" data-bs-target="#editFolderModal"
-                style="z-index: 1;"><i class="bi bi-pencil-square" style="color: rgba(255,255,255,0.5);"></i>
+                style="z-index: 2;"><i class="bi bi-pencil-square" style="color: rgba(255,255,255,0.5);"></i>
             </a>
-            
+            <a href="/playlist?db={cid}" style="text-decoration: none; color: inherit; display: block;">
                 <div class="img-container text-center"
                     style="width: 100px; height: 100px; display: inline-block; overflow: hidden; position: relative; border-radius: 50%; margin: 14px auto 0;">
                     <img src="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/src/loading.gif"
                         class="card-img-top lzy_img" data-src="{img}" alt="{title}"
                         style="object-fit: cover; width: 100%; height: 100%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
                 </div>
-            <a href="/playlist?db={cid}" style="text-align: center;">
                 <div class="card-body p-1 text-center">
                     <div>
                         <h6 class="card-title">{title}</h6>
@@ -77,22 +76,21 @@ async def posts_db_file(posts):
     phtml = """
     <div class="col">
 
-        <div class="card mb-2">
+        <div class="card mb-2" style="cursor: pointer;">
             <a href=""
                 onclick="openPostEditPopupForm(event, '{img}', '{type}', '{size}', '{title}', '{cid}', '{ctype}')"
-                class="admin-only position-absolute top-0 end-0 m-2" data-bs-toggle="modal" data-bs-target="#editModal"><i
+                class="admin-only position-absolute top-0 end-0 m-2" data-bs-toggle="modal" data-bs-target="#editModal"
+                style="z-index: 2;"><i
                     class="bi bi-pencil-square" style="color: rgba(255,255,255,0.5);"></i></a>
-            
+            <a href="/watch/{chat_id}?id={id}&hash={hash}" style="text-decoration: none; color: inherit; display: block;">
                 <img src="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/src/loading.gif" data-src="{img}"
                     class="card-img-top lzy_img" alt="{title}">
-                <a href="/watch/{chat_id}?id={id}&hash={hash}">
                 <div class="card-body">
                     <h6 class="card-title">{title}</h6>
                     <span class="badge bg-warning">{type}</span>
                     <span class="badge bg-info">{size}</span>
                 </div>
-                </a>
-            
+            </a>
         </div>
 
     </div>
