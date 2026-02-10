@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/src/ico2.png" type="image/x-icon">
+    <link rel="shortcut icon" href="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/src/ico2.png"
+        type="image/x-icon">
+    <title>Surf-TG: <!-- Filename --></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script disable-devtool-auto src='https://cdn.jsdelivr.net/npm/disable-devtool'></script>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        /* Navbar */
+        .navbar {
+            background: rgba(15, 15, 26, 0.92);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            z-index: 100;
+        }
+
+        .navbar img {
+            height: 32px;
+        }
+
+        .nav-title {
+            flex: 1;
+            margin: 0 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.7);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .nav-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e0e0e0;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .nav-btn:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+        }
+
+        .nav-btn.primary {
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            border-color: transparent;
+            color: #fff;
+        }
+
+        .nav-btn.primary:hover {
+            box-shadow: 0 4px 16px rgba(0, 212, 255, 0.3);
+        }
+
+        /* PDF viewer container */
+        .pdf-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .pdf-container iframe {
+            flex: 1;
+            width: 100%;
+            border: none;
+            background: #1a1a2e;
+        }
+
+        /* Fallback bar (shown when iframe can't render PDF on mobile) */
+        .fallback-bar {
+            display: none;
+            padding: 12px 16px;
+            background: rgba(255, 193, 7, 0.1);
+            border-top: 1px solid rgba(255, 193, 7, 0.2);
+            text-align: center;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+            flex-shrink: 0;
+        }
+
+        .fallback-bar a {
+            color: #00d4ff;
+            text-decoration: underline;
+            font-weight: 500;
+        }
+
+        /* Bottom toolbar (mobile) */
+        .bottom-bar {
+            display: none;
+            padding: 8px 16px;
+            background: rgba(15, 15, 26, 0.92);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            justify-content: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 600px) {
+            .nav-title {
+                display: none;
+            }
+
+            .bottom-bar {
+                display: flex;
+            }
+
+            .nav-actions .nav-btn span {
+                display: none;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar">
+        <a href="/">
+            <img src="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/src/logo%20(2).png" alt="Logo">
+        </a>
+        <div class="nav-title"><!-- Filename --></div>
+        <div class="nav-actions">
+            <div class="nav-btn primary" onclick="download()"><i class="bi bi-download"></i> <span>Download</span></div>
+            <div class="nav-btn" onclick="copyUrl()"><i class="bi bi-clipboard"></i> <span>Copy</span></div>
+            <div class="nav-btn" onclick="get_file()"><i class="bi bi-telegram"></i> <span>Get File</span></div>
+            <form id="signoutForm" action="/logout" method="post" style="margin:0;">
+                <button type="submit" class="nav-btn"><i class="bi bi-box-arrow-left"></i> <span>Logout</span></button>
+            </form>
+        </div>
+    </nav>
+
+    <div class="pdf-container">
+        <iframe id="pdfViewer" src="" title="PDF Viewer"></iframe>
+    </div>
+
+    <div class="fallback-bar" id="fallbackBar">
+        Can't view the PDF? <a href="#" id="fallbackLink">Open in new tab</a> or <a href="#"
+            id="fallbackDownload">Download</a>
+    </div>
+
+    <div class="bottom-bar">
+        <div class="nav-btn primary" onclick="download()"><i class="bi bi-download"></i> Download</div>
+        <div class="nav-btn" onclick="copyUrl()"><i class="bi bi-clipboard"></i> Copy</div>
+        <div class="nav-btn" onclick="get_file()"><i class="bi bi-telegram"></i> Get File</div>
+    </div>
+</body>
+
+<script>
+    const pageUrl = window.location.href;
+    const url = new URL(pageUrl);
+    const domainUrl = url.origin;
+    const pathParts = pageUrl.split('/');
+    const videoIdWithParams = pathParts.pop();
+    const videoId = videoIdWithParams.split('?')[0];
+    const idParam = new URLSearchParams(window.location.search).get('id');
+    const hashParam = new URLSearchParams(window.location.search).get('hash');
+    const encodedName = encodeURIComponent('<!-- Filename -->');
+    const downloadlink = `${domainUrl}/${videoId}/${encodedName}?id=${idParam}&hash=${hashParam}`;
+
+    // Load PDF in iframe
+    const viewer = document.getElementById('pdfViewer');
+    viewer.src = downloadlink;
+
+    // Fallback links
+    document.getElementById('fallbackLink').href = downloadlink;
+    document.getElementById('fallbackDownload').href = downloadlink;
+
+    // Detect if iframe fails to render PDF (mobile browsers)
+    viewer.addEventListener('load', function () {
+        try {
+            // If we can access contentDocument and it's empty/error, show fallback
+            const doc = viewer.contentDocument || viewer.contentWindow.document;
+            if (doc && doc.body && doc.body.innerHTML === '') {
+                document.getElementById('fallbackBar').style.display = 'block';
+            }
+        } catch (e) {
+            // Cross-origin - can't check, PDF is likely loading fine
+        }
+    });
+
+    function download() {
+        window.location.href = downloadlink;
+    }
+    function get_file() {
+        const regex = /(\d+)\?id=(\d+)&/;
+        const match = pageUrl.match(regex);
+        if (match) {
+            const chatId = "-100" + match[1];
+            const messageId = match[2];
+            window.location.href = `https://t.me/<!-- Username -->?start=file_${messageId}${chatId}`;
+        }
+    }
+    function copyUrl() {
+        navigator.clipboard.writeText(downloadlink)
+            .then(() => alert('URL copied to clipboard!'))
+            .catch((error) => console.error('Failed to copy URL: ', error));
+    }
+</script>
+
+</html>

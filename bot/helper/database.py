@@ -1,4 +1,4 @@
-from pymongo import DESCENDING, MongoClient
+from pymongo import ASCENDING, DESCENDING, MongoClient
 from bson import ObjectId
 from bot.config import Telegram
 import re
@@ -123,3 +123,144 @@ class Database:
     
     async def add_btgfiles(self, data):
         result = self.files.insert_many(data)
+
+    async def get_or_create_folder(self, parent_id: str, folder_name: str, channel_id: str = None) -> str:
+        """
+        Get existing folder or create new one and return its ID.
+        
+        Args:
+            parent_id: Parent folder ID or "root"
+            folder_name: Name of the folder to find/create
+            channel_id: Optional source channel ID
+            
+        Returns:
+            String ID of the folder (ObjectId as string)
+        """
+        # Check if folder already exists
+        query = {"parent_folder": parent_id, "name": folder_name, "type": "folder"}
+        existing = self.collection.find_one(query)
+        
+        if existing:
+            return str(existing['_id'])
+        
+        # Create new folder
+        folder = {
+            "parent_folder": parent_id,
+            "name": folder_name,
+            "thumbnail": "",
+            "type": "folder",
+            "auto_created": True  # Mark as auto-created from Topic
+        }
+        if channel_id:
+            folder["source_channel"] = channel_id
+            
+        result = self.collection.insert_one(folder)
+        return str(result.inserted_id)
+
+    async def add_tgfile_with_folder(self, chat_id, file_id, hash, name, size, file_type, folder_id=None):
+        """
+        Add file to database with optional topic folder reference.
+        Also adds to playlist collection if folder_id is provided.
+        """
+        # Add to files collection (existing behavior)
+        if fetch_old := self.files.find_one({"chat_id": chat_id, "hash": hash}):
+            # File already exists in files collection, but may need to add to playlist
+            pass
+        else:
+            file = {"chat_id": chat_id, "msg_id": file_id,
+                    "hash": hash, "title": name, "size": size, "type": file_type}
+            if folder_id:
+                file["topic_folder_id"] = folder_id
+            self.files.insert_one(file)
+        
+        # Also add to playlist collection for folder view if folder_id provided
+        if folder_id:
+            existing_in_playlist = self.collection.find_one({
+                "chat_id": chat_id, "file_id": file_id, "parent_folder": folder_id, "type": "file"
+            })
+            if not existing_in_playlist:
+                # Thumbnail URL from the channel's thumbnail API
+                thumbnail = f"/api/thumb/{chat_id}?id={file_id}"
+                playlist_file = {
+                    "chat_id": chat_id,
+                    "parent_folder": folder_id,
+                    "file_id": file_id,
+                    "hash": hash,
+                    "name": name,
+                    "size": size,
+                    "file_type": file_type,
+                    "thumbnail": thumbnail,
+                    "type": "file"
+                }
+                self.collection.insert_one(playlist_file)
+
+    async def get_topic_index(self, chat_id):
+        """
+        Build topic folder hierarchy with first msg_id for Telegram channel index.
+        Returns dict: {folder_id: {name, parent_id, first_msg_id, children: []}}
+        """
+        # Get all auto-created folders for this channel
+        folders = list(self.collection.find({
+            "source_channel": chat_id, 
+            "auto_created": True, 
+            "type": "folder"
+        }))
+        
+        # Build folder map
+        folder_map = {}
+        for f in folders:
+            fid = str(f['_id'])
+            folder_map[fid] = {
+                "name": f['name'],
+                "parent_id": f['parent_folder'],
+                "first_msg_id": None,
+                "file_count": 0,
+                "total_files": 0,  # includes children's files
+                "children": []
+            }
+        
+        # Get all files with topic_folder_id for this channel
+        files = list(self.files.find({
+            "chat_id": chat_id,
+            "topic_folder_id": {"$exists": True}
+        }).sort("msg_id", ASCENDING))
+        
+        # Assign first_msg_id to each folder
+        for file_doc in files:
+            folder_id = file_doc.get("topic_folder_id")
+            if folder_id in folder_map:
+                folder_map[folder_id]["file_count"] += 1
+                if folder_map[folder_id]["first_msg_id"] is None:
+                    folder_map[folder_id]["first_msg_id"] = file_doc["msg_id"]
+        
+        # Build parent-child relationships
+        for fid, fdata in folder_map.items():
+            parent = fdata["parent_id"]
+            if parent in folder_map:
+                folder_map[parent]["children"].append(fid)
+        
+        # Propagate first_msg_id up: if parent has no first_msg_id, use child's
+        def propagate_up(fid):
+            fdata = folder_map[fid]
+            earliest_msg = fdata["first_msg_id"]
+            total = fdata["file_count"]
+            
+            for child_id in fdata["children"]:
+                child_msg, child_total = propagate_up(child_id)
+                total += child_total
+                if child_msg is not None:
+                    if earliest_msg is None or int(child_msg) < int(earliest_msg):
+                        earliest_msg = child_msg
+            
+            fdata["first_msg_id"] = earliest_msg
+            fdata["total_files"] = total
+            return earliest_msg, total
+        
+        # Find root folders (parent_id = "root")
+        root_folders = [fid for fid, fdata in folder_map.items() if fdata["parent_id"] == "root"]
+        
+        # Propagate from roots
+        for root_id in root_folders:
+            propagate_up(root_id)
+        
+        return folder_map, root_folders

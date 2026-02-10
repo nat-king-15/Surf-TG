@@ -8,6 +8,9 @@
     <link rel="shortcut icon" href="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/src/ico2.png"
         type="image/x-icon">
     <title>Surf-TG: Playlist- <!-- Title --> </title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="https://bootswatch.com/5/<!-- Theme -->/bootstrap.min.css">
@@ -17,48 +20,398 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/js/SurfTG.js"></script>
     <script disable-devtool-auto src='https://cdn.jsdelivr.net/npm/disable-devtool'></script>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            padding-bottom: 80px;
+            position: relative;
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        /* Navbar */
+        .navbar {
+            background: rgba(15, 15, 26, 0.85) !important;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 10px 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        /* Section header */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 16px 0 8px;
+            flex-wrap: wrap;
+        }
+
+        .section-title {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 8px 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: rgba(255, 255, 255, 0.7);
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Search bar */
+        .search-bar {
+            position: sticky;
+            top: 56px;
+            z-index: 90;
+            background: rgba(15, 15, 26, 0.9);
+            backdrop-filter: blur(16px);
+            padding: 12px 0;
+        }
+
+        .search-bar .form-control {
+            background: rgba(255, 255, 255, 0.06) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #e0e0e0 !important;
+            border-radius: 12px;
+            padding: 10px 16px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .search-bar .form-control:focus {
+            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.15) !important;
+            border-color: #00d4ff !important;
+        }
+
+        .search-bar .btn {
+            background: rgba(0, 212, 255, 0.15);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            border-radius: 12px;
+            padding: 10px 20px;
+            font-weight: 500;
+        }
+
+        .search-bar .btn:hover {
+            background: rgba(0, 212, 255, 0.25);
+        }
+
+        /* Tabs */
+        .tab-nav {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 8px 0;
+            scrollbar-width: none;
+        }
+
+        .tab-nav::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tab-btn {
+            flex-shrink: 0;
+            padding: 8px 16px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.04);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Inter', sans-serif;
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #e0e0e0;
+        }
+
+        .tab-btn.active {
+            background: rgba(0, 212, 255, 0.12);
+            border-color: rgba(0, 212, 255, 0.3);
+            color: #00d4ff;
+        }
+
+        .tab-count {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 1px 6px;
+            font-size: 0.7rem;
+            margin-left: 4px;
+        }
+
+        .tab-btn.active .tab-count {
+            background: rgba(0, 212, 255, 0.2);
+        }
+
+        /* Sort controls */
+        .sort-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+            padding: 4px 0 12px;
+            flex-wrap: wrap;
+        }
+
+        .sort-label {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .sort-btn {
+            padding: 5px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: transparent;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.72rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .sort-btn:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: #e0e0e0;
+        }
+
+        .sort-btn.active {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+        }
+
+        /* Cards */
+        .card {
+            background: rgba(255, 255, 255, 0.04) !important;
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.06) !important;
+            border-radius: 14px !important;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(0, 212, 255, 0.15) !important;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .col {
+            transition: all 0.3s ease;
+        }
+
+        .col:hover {
+            transform: none;
+        }
+
+        .card-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #e0e0e0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            margin: 0;
+            line-height: 1.3;
+        }
+
+        .card-body {
+            padding: 8px 10px !important;
+        }
+
+        .card-img-top {
+            border-radius: 14px 14px 0 0;
+            aspect-ratio: 16/10;
+            object-fit: cover;
+        }
+
+        .badge {
+            font-size: 0.6rem;
+            font-weight: 500;
+            padding: 3px 7px;
+            border-radius: 6px;
+        }
+
+        .badge.bg-warning {
+            background: rgba(255, 193, 7, 0.15) !important;
+            color: #ffc107;
+        }
+
+        .badge.bg-info {
+            background: rgba(0, 212, 255, 0.12) !important;
+            color: #00d4ff;
+        }
+
+        /* Folder cards */
+        .img-container {
+            width: 90px !important;
+            height: 90px !important;
+            margin: 14px auto 0 !important;
+            border: 2px solid rgba(255, 255, 255, 0.06);
+            transition: border-color 0.3s ease;
+        }
+
+        .card:hover .img-container {
+            border-color: rgba(0, 212, 255, 0.25);
+        }
+
+        /* Tab pane */
+        .tab-pane {
+            display: none;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        /* Pagination */
+        .pagination-wrap {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            padding: 20px 0;
+        }
+
+        .page-btn {
+            padding: 10px 24px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Inter', sans-serif;
+            text-decoration: none;
+        }
+
+        .page-btn:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+        }
+
+        .page-btn.disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        /* Buttons */
+        .btn {
+            border-radius: 10px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 0.8rem;
+        }
+
+        /* Modals */
+        .modal-content {
+            background: rgba(26, 26, 46, 0.95) !important;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            color: #e0e0e0;
+        }
+
+        .form-control {
+            background: rgba(255, 255, 255, 0.06) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #e0e0e0 !important;
+            border-radius: 10px;
+        }
+
+        .form-control:focus {
+            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.15) !important;
+            border-color: #00d4ff !important;
+        }
+
+        .form-label,
+        label {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8rem;
+        }
+
+        /* Footer */
+        .footer {
+            position: relative;
+            width: 100%;
+            padding: 16px;
+            text-align: center;
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.2);
+        }
+
+        .footer a {
+            color: rgba(255, 255, 255, 0.3);
+            text-decoration: none;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+        }
+
+        /* Animations */
+        .content-grid .col {
+            animation: fadeIn 0.3s ease-out both;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .sort-row {
+                justify-content: center;
+            }
+        }
+    </style>
 </head>
-<style>
-    a {
-        text-decoration: none;
-    }
-
-    ::-webkit-scrollbar {
-        width: 5px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-        background: #888;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-        background: #555;
-    }
-
-    html {
-        position: relative;
-        min-height: 100%;
-    }
-
-    body {
-        margin-bottom: 60px;
-    }
-
-    .footer {
-        position: absolute;
-        bottom: 0;
-        width: 100%;
-        height: 60px;
-    }
-
-    .col {
-        transition: all 0.3s;
-    }
-
-    .col:hover {
-        transform: scale(1.05);
-    }
-</style>
 
 <body>
 
@@ -71,13 +424,14 @@
                         <label for="folderName" class="form-label">Folder Name</label>
                         <input type="text" class="form-control" id="folderName" name="folderName"
                             placeholder="Enter folder name">
-                        <label for="thumbnail" class="form-label">Thumbnail</label>
+                        <label for="thumbnail" class="form-label mt-2">Thumbnail</label>
                         <input type="text" class="form-control" id="thumbnail" name="thumbnail"
                             placeholder="Thumbnail url"><br>
                         <input type="hidden" id="parent_dir" name="parent_dir" readonly>
-                        <div class="d-flex justify-content-end">
-                            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Close</button>
-                            <button type="submit" class="btn btn-primary">Create</button>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-secondary btn-sm"
+                                data-bs-dismiss="modal">Close</button>
+                            <button type="submit" class="btn btn-primary btn-sm">Create</button>
                         </div>
                     </form>
                 </div>
@@ -99,11 +453,13 @@
                         <label for="edit_filethumbnail">File Thumbnail:</label>
                         <input type="text" class="form-control" id="edit_filethumbnail" name="filethumbnail"
                             value=""><br>
-                        <div class="d-flex justify-content-end">
-                            <button type="submit" class="btn btn-primary  me-2"
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="submit" class="btn btn-primary btn-sm"
                                 onclick="submitEditFileForm()">Submit</button>
-                            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Close</button>
-                            <button type="button" class="btn btn-danger" onclick="deleteFileItem()">Delete</button>
+                            <button type="button" class="btn btn-secondary btn-sm"
+                                data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-danger btn-sm"
+                                onclick="deleteFileItem()">Delete</button>
                         </div>
                     </form>
                 </div>
@@ -122,11 +478,12 @@
                         <input type="text" class="form-control" id="edit_folderName" name="folderName" value=""><br>
                         <label for="edit_thumbnail">Thumbnail:</label>
                         <input type="text" class="form-control" id="edit_thumbnail" name="thumbnail" value=""><br>
-                        <div class="d-flex justify-content-end">
-                            <button type="submit" class="btn btn-primary  me-2"
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="submit" class="btn btn-primary btn-sm"
                                 onclick="submitEditForm()">Submit</button>
-                            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Close</button>
-                            <button type="button" class="btn btn-danger" onclick="deleteItem()">Delete</button>
+                            <button type="button" class="btn btn-secondary btn-sm"
+                                data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-danger btn-sm" onclick="deleteItem()">Delete</button>
                         </div>
                     </form>
                 </div>
@@ -134,101 +491,255 @@
         </div>
     </div>
 
-    <nav class="navbar navbar-expand-lg bg-primary mb-3 p-1" data-bs-theme="dark">
+    <nav class="navbar">
         <div class="container-fluid">
             <a class="navbar-brand" href="/">
                 <img src="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/src/logo%20(2).png" alt="Logo"
-                    height="40">
+                    height="36">
             </a>
-            <form id="signoutForm" action="/logout" method="post" class="d-flex" role="logout">
+            <form id="signoutForm" action="/logout" method="post" role="logout">
                 <button type="submit" class="btn btn-secondary btn-sm"><i class="bi bi-box-arrow-left"></i>
                     Logout</button>
             </form>
         </div>
     </nav>
 
-    <div class="container d-flex align-items-center justify-content-center">
-        <div class="card mx-auto text-center">
-            <div class="card-header"><!-- Title --></div>
+    <div class="container">
+        <div class="section-header">
+            <span class="section-title"><!-- Title --></span>
+            <button type="button" class="admin-only btn btn-secondary btn-sm" data-bs-toggle="modal"
+                data-bs-target="#createFolderModal" onclick="createPopupForm(event)">
+                <i class="bi bi-folder-plus"></i> New
+            </button>
         </div>
-        <button type="button" class="admin-only btn btn-secondary btn-sm" data-bs-toggle="modal"
-            data-bs-target="#createFolderModal" onclick="createPopupForm(event)">Create Folder</button>
     </div>
 
-    <div class="container">
-        <form class="d-flex" style="margin: auto; padding-top: 10px; padding-bottom: 20px;"
-            action="/search/db/<!-- Parent_id -->" method="get">
-            <input class="form-control me-sm-2" type="search" placeholder="Search" name="q">
-            <button class="btn btn-secondary my-sm-0" type="submit">Search</button>
+    <div class="container search-bar">
+        <form class="d-flex gap-2" action="/search/db/<!-- Parent_id -->" method="get">
+            <input class="form-control" type="search" placeholder="🔍 Search files..." name="q">
+            <button class="btn" type="submit">Search</button>
         </form>
     </div>
 
     <div class="container py-2">
-        <!-- Folder grid  -->
-        <div class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-2">
-            <!-- Folder card  -->
-            <!-- Playlist -->
+        <!-- Tab Navigation -->
+        <div class="tab-nav" id="tabNav">
+            <button class="tab-btn active" data-tab="folders-pane">📁 Folders <span class="tab-count"
+                    id="folders-count"></span></button>
+            <button class="tab-btn" data-tab="videos-pane">🎬 Videos <span class="tab-count"
+                    id="videos-count"></span></button>
+            <button class="tab-btn" data-tab="pdfs-pane">📄 PDFs <span class="tab-count"
+                    id="pdfs-count"></span></button>
+            <button class="tab-btn" data-tab="others-pane">📎 Others <span class="tab-count"
+                    id="others-count"></span></button>
         </div>
-        <!-- Playlist Grid Card  -->
-        <div class="row row-cols-2 row-cols-md-4 row-cols-lg-5 g-2">
-            <!-- Playlist File Card  -->
-            <!-- Database -->
+
+        <!-- Sort Controls -->
+        <div class="sort-row">
+            <span class="sort-label">Sort:</span>
+            <button class="sort-btn active" data-sort="name-asc">A→Z</button>
+            <button class="sort-btn" data-sort="name-desc">Z→A</button>
+            <button class="sort-btn" data-sort="newest">New</button>
+            <button class="sort-btn" data-sort="oldest">Old</button>
+            <button class="sort-btn" data-sort="size-desc">Size↓</button>
+            <button class="sort-btn" data-sort="size-asc">Size↑</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div id="folders-pane" class="tab-pane active">
+            <div class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-2 content-grid" id="folders-grid">
+                <!-- Playlist -->
+            </div>
+        </div>
+        <div id="videos-pane" class="tab-pane">
+            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-2 content-grid" id="videos-grid"></div>
+        </div>
+        <div id="pdfs-pane" class="tab-pane">
+            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-2 content-grid" id="pdfs-grid"></div>
+        </div>
+        <div id="others-pane" class="tab-pane">
+            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-2 content-grid" id="others-grid"></div>
         </div>
     </div>
-    <div class="container d-flex align-items-center justify-content-center">
-        <div>
-            <ul class="pagination">
-                <li class="page-item">
-                    <a class="page-link" id="prevButton" href="#">Previous</a>
-                </li>
-                <li class="page-item">
-                    <a class="page-link" id="nextButton" href="#">Next</a>
-                </li>
-            </ul>
-        </div>
+
+    <!-- Hidden container for file cards -->
+    <div id="all-files-container" style="display:none;">
+        <!-- Database -->
     </div>
-    <footer class="footer mt-auto py-3 text-muted text-center" style="color: white;">
-        <div class="container d-flex justify-content-center align-items-center" style="width: 100%; padding: 0 10px;">
-            <p class="float-end">
-            <p>Made with <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-heart-fill" fill="red"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path fill-rule="evenodd"
-                        d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314z" />
-                </svg> by <a href="https://github.com/weebzone" target="_blank">Karan Adhikari</a><br>
-                &copy; 2024 <a href="https://github.com/weebzone/Surf-TG" target="_blank">Surf-TG</a>. All Rights
-                Reserved.
-        </div>
+
+    <div class="container pagination-wrap">
+        <a class="page-btn" id="prevButton" href="#">← Previous</a>
+        <a class="page-btn" id="nextButton" href="#">Next →</a>
+    </div>
+
+    <footer class="footer">
+        Made with ❤️ by <a href="https://github.com/weebzone" target="_blank">Karan Adhikari</a><br>
+        &copy; 2024 <a href="https://github.com/weebzone/Surf-TG" target="_blank">Surf-TG</a>
     </footer>
 </body>
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {
+        // === Pagination ===
         const prevButton = document.getElementById("prevButton");
         const nextButton = document.getElementById("nextButton");
-
         const url = new URL(window.location.href);
-        const parentId = url.searchParams.get("db");
         const currentPage = url.searchParams.get("page") ? parseInt(url.searchParams.get("page")) : 1;
+        if (currentPage <= 1) prevButton.classList.add("disabled");
 
-        prevButton.addEventListener("click", function () {
-            if (currentPage > 1) {
-                navigateChannel(url.origin + url.pathname, currentPage - 1);
-                log.console(url.origin + url.pathname)
-            } else {
-                prevButton.classList.add("disabled");
+        prevButton.addEventListener("click", function (e) {
+            e.preventDefault();
+            if (currentPage > 1) navigateChannel(url.origin + url.pathname, currentPage - 1);
+        });
+        nextButton.addEventListener("click", function (e) {
+            e.preventDefault();
+            navigateChannel(url.origin + url.pathname, currentPage + 1);
+        });
+
+        // === Tab switching (custom, no Bootstrap tabs) ===
+        document.querySelectorAll(".tab-btn").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+                document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+                btn.classList.add("active");
+                document.getElementById(btn.dataset.tab).classList.add("active");
+                // Re-trigger lazy loading for newly visible tab
+                if (typeof initLazyLoading === 'function') initLazyLoading();
+            });
+        });
+
+        // === Categorize files into tabs ===
+        const allFiles = document.getElementById("all-files-container");
+        const videosGrid = document.getElementById("videos-grid");
+        const pdfsGrid = document.getElementById("pdfs-grid");
+        const othersGrid = document.getElementById("others-grid");
+        const fileCards = allFiles.querySelectorAll(".col");
+        let videoCount = 0, pdfCount = 0, otherCount = 0;
+
+        fileCards.forEach(function (card) {
+            const badges = card.querySelectorAll(".badge");
+            let fileType = "";
+            badges.forEach(function (badge) {
+                const text = badge.textContent.toLowerCase();
+                if (text.includes("video") || text.includes("matroska") || text.includes("mp4") || text.includes("avi") || text.includes("mkv") || text.includes("webm")) {
+                    fileType = "video";
+                } else if (text.includes("pdf")) {
+                    fileType = "pdf";
+                } else if (text.includes("mb") || text.includes("kb") || text.includes("gb") || text.includes("bytes")) {
+                    // size badge, skip
+                } else if (fileType === "" && text !== "") {
+                    fileType = "other";
+                }
+            });
+            const clone = card.cloneNode(true);
+            if (fileType === "video") { videosGrid.appendChild(clone); videoCount++; }
+            else if (fileType === "pdf") { pdfsGrid.appendChild(clone); pdfCount++; }
+            else { othersGrid.appendChild(clone); otherCount++; }
+        });
+
+        // === Force-load all thumbnails (cloned elements miss SurfTG.js observer) ===
+        function initLazyLoading() {
+            document.querySelectorAll('img[data-src]').forEach(function (img) {
+                img.src = img.dataset.src;
+                img.removeAttribute('data-src');
+                img.classList.remove('lzy_img');
+            });
+        }
+        // Small delay to let DOM settle after cloning
+        setTimeout(initLazyLoading, 50);
+
+        const foldersGrid = document.getElementById("folders-grid");
+        const folderCount = foldersGrid.querySelectorAll(".col").length;
+        document.getElementById("folders-count").textContent = folderCount;
+        document.getElementById("videos-count").textContent = videoCount;
+        document.getElementById("pdfs-count").textContent = pdfCount;
+        document.getElementById("others-count").textContent = otherCount;
+
+        // Auto-select first non-empty tab
+        if (folderCount === 0) {
+            document.querySelector('[data-tab="folders-pane"]').classList.remove("active");
+            document.getElementById("folders-pane").classList.remove("active");
+            if (videoCount > 0) {
+                document.querySelector('[data-tab="videos-pane"]').classList.add("active");
+                document.getElementById("videos-pane").classList.add("active");
+            } else if (pdfCount > 0) {
+                document.querySelector('[data-tab="pdfs-pane"]').classList.add("active");
+                document.getElementById("pdfs-pane").classList.add("active");
+            } else if (otherCount > 0) {
+                document.querySelector('[data-tab="others-pane"]').classList.add("active");
+                document.getElementById("others-pane").classList.add("active");
+            }
+        }
+
+        // Hide empty tabs
+        if (folderCount === 0) document.querySelector('[data-tab="folders-pane"]').style.display = "none";
+        if (videoCount === 0) document.querySelector('[data-tab="videos-pane"]').style.display = "none";
+        if (pdfCount === 0) document.querySelector('[data-tab="pdfs-pane"]').style.display = "none";
+        if (otherCount === 0) document.querySelector('[data-tab="others-pane"]').style.display = "none";
+
+        // === Sorting ===
+        var savedSort = localStorage.getItem('surfTgSort') || 'name-asc';
+
+        document.querySelectorAll(".sort-btn").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                document.querySelectorAll(".sort-btn").forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+                var sortType = btn.getAttribute("data-sort");
+                localStorage.setItem('surfTgSort', sortType);
+                sortAllGrids(sortType);
+            });
+            // Set active state for saved sort
+            if (btn.getAttribute("data-sort") === savedSort) {
+                document.querySelectorAll(".sort-btn").forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
             }
         });
 
-        nextButton.addEventListener("click", function () {
-            navigateChannel(url.origin + url.pathname, currentPage + 1);
+        function parseSize(sizeStr) {
+            const match = sizeStr.match(/([\d.]+)\s*(bytes|kb|mb|gb|tb)/i);
+            if (!match) return 0;
+            const num = parseFloat(match[1]);
+            const unit = match[2].toLowerCase();
+            const m = { bytes: 1, kb: 1024, mb: 1048576, gb: 1073741824, tb: 1099511627776 };
+            return num * (m[unit] || 0);
+        }
+
+        function sortAllGrids(sortType) {
+            ["videos-grid", "pdfs-grid", "others-grid", "folders-grid"].forEach(function (gridId) {
+                const grid = document.getElementById(gridId);
+                const items = Array.from(grid.querySelectorAll(".col"));
+                items.sort(function (a, b) {
+                    const tA = (a.querySelector(".card-title") || {}).textContent || "";
+                    const tB = (b.querySelector(".card-title") || {}).textContent || "";
+                    if (sortType === "name-asc") return tA.localeCompare(tB);
+                    if (sortType === "name-desc") return tB.localeCompare(tA);
+                    if (sortType === "newest" || sortType === "oldest") {
+                        const iA = items.indexOf(a), iB = items.indexOf(b);
+                        return sortType === "newest" ? iA - iB : iB - iA;
+                    }
+                    if (sortType === "size-desc" || sortType === "size-asc") {
+                        const sA = parseSize((a.querySelector(".badge.bg-info") || {}).textContent || "0");
+                        const sB = parseSize((b.querySelector(".badge.bg-info") || {}).textContent || "0");
+                        return sortType === "size-desc" ? sB - sA : sA - sB;
+                    }
+                    return 0;
+                });
+                items.forEach(item => grid.appendChild(item));
+            });
+        }
+        sortAllGrids(savedSort);
+
+        // Stagger animations
+        document.querySelectorAll('.content-grid .col').forEach(function (el, i) {
+            el.style.animationDelay = (i * 0.03) + 's';
         });
     });
+
     function navigateChannel(url, page) {
         const searchParams = new URLSearchParams(window.location.search);
         const dbQuery = searchParams.get('db');
         const searchQuery = searchParams.get('q');
         page = parseInt(page) || 1;
-
         let newUrl = url;
         if (dbQuery !== null) {
             newUrl += `?db=${dbQuery}`;
@@ -239,7 +750,6 @@
         } else {
             newUrl += page > 1 ? `?page=${page}` : '';
         }
-
         window.location.href = newUrl;
     }
 </script>

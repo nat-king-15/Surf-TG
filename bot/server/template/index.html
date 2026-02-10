@@ -8,6 +8,9 @@
     <link rel="shortcut icon" href="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/src/ico2.png"
         type="image/x-icon">
     <title>Surf-TG: Chat- <!-- Title --></title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="https://bootswatch.com/5/<!-- Theme -->/bootstrap.min.css">
@@ -15,54 +18,263 @@
         integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
         crossorigin="anonymous"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/js/SurfTG.js"></script>
     <script disable-devtool-auto src='https://cdn.jsdelivr.net/npm/disable-devtool'></script>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            padding-bottom: 80px;
+            position: relative;
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .navbar {
+            background: rgba(15, 15, 26, 0.85) !important;
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 10px 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 16px 0 8px;
+            flex-wrap: wrap;
+        }
+
+        .section-title {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 8px 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .search-bar {
+            position: sticky;
+            top: 56px;
+            z-index: 90;
+            background: rgba(15, 15, 26, 0.9);
+            backdrop-filter: blur(16px);
+            padding: 12px 0;
+        }
+
+        .search-bar .form-control {
+            background: rgba(255, 255, 255, 0.06) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #e0e0e0 !important;
+            border-radius: 12px;
+            padding: 10px 16px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .search-bar .form-control:focus {
+            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.15) !important;
+            border-color: #00d4ff !important;
+        }
+
+        .search-bar .btn {
+            background: rgba(0, 212, 255, 0.15);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            border-radius: 12px;
+            padding: 10px 20px;
+            font-weight: 500;
+        }
+
+        .search-bar .btn:hover {
+            background: rgba(0, 212, 255, 0.25);
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.04) !important;
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.06) !important;
+            border-radius: 14px !important;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(0, 212, 255, 0.15) !important;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .col {
+            transition: all 0.3s ease;
+        }
+
+        .col:hover {
+            transform: none;
+        }
+
+        .card-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #e0e0e0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            margin: 0;
+            line-height: 1.3;
+        }
+
+        .card-body {
+            padding: 8px 10px !important;
+        }
+
+        .card-img-top {
+            border-radius: 14px 14px 0 0;
+            aspect-ratio: 16/10;
+            object-fit: cover;
+        }
+
+        .badge {
+            font-size: 0.6rem;
+            padding: 3px 7px;
+            border-radius: 6px;
+        }
+
+        .badge.bg-warning {
+            background: rgba(255, 193, 7, 0.15) !important;
+            color: #ffc107;
+        }
+
+        .badge.bg-info {
+            background: rgba(0, 212, 255, 0.12) !important;
+            color: #00d4ff;
+        }
+
+        .pagination-wrap {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            padding: 20px 0;
+        }
+
+        .page-btn {
+            padding: 10px 24px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Inter', sans-serif;
+            text-decoration: none;
+        }
+
+        .page-btn:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+        }
+
+        .page-btn.disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .btn {
+            border-radius: 10px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 0.8rem;
+        }
+
+        .modal-content {
+            background: rgba(26, 26, 46, 0.95) !important;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            color: #e0e0e0;
+        }
+
+        .form-control {
+            background: rgba(255, 255, 255, 0.06) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #e0e0e0 !important;
+            border-radius: 10px;
+        }
+
+        .form-select {
+            background: rgba(255, 255, 255, 0.06) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #e0e0e0 !important;
+            border-radius: 10px;
+        }
+
+        .footer {
+            position: relative;
+            width: 100%;
+            padding: 16px;
+            text-align: center;
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.2);
+        }
+
+        .footer a {
+            color: rgba(255, 255, 255, 0.3);
+            text-decoration: none;
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+        }
+
+        .content-grid .col {
+            animation: fadeIn 0.3s ease-out both;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
 </head>
-<style>
-    a {
-        text-decoration: none;
-    }
-
-    ::-webkit-scrollbar {
-        width: 5px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-        background: #888;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-        background: #555;
-    }
-
-    html {
-        position: relative;
-        min-height: 100%;
-    }
-
-    body {
-        margin-bottom: 60px;
-    }
-
-    .footer {
-        position: absolute;
-        bottom: 0;
-        width: 100%;
-        height: 60px;
-    }
-
-    .col {
-        transition: all 0.3s;
-    }
-
-    .col:hover {
-        transform: scale(1.05);
-    }
-</style>
 
 <body>
-
     <div class="admin-only modal fade" id="sendFileModal" aria-labelledby="sendFileModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -74,11 +286,11 @@
                         <input type="text" class="form-control" id="folderSearch" name="folderSearch"><br>
                         <select class="form-select" id="folderDropdown"></select><br>
                         <input type="hidden" id="folderId" name="folderId">
-
-                        <div class="d-flex justify-content-end">
-                            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Close</button>
-                            <button type="submit" class="btn btn-primary" onclick="submitSendForm()" id="sendButton"
-                                disabled>Submit</button>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-secondary btn-sm"
+                                data-bs-dismiss="modal">Close</button>
+                            <button type="submit" class="btn btn-primary btn-sm" onclick="submitSendForm()"
+                                id="sendButton" disabled>Submit</button>
                         </div>
                     </form>
                 </div>
@@ -86,113 +298,96 @@
         </div>
     </div>
 
-    <nav class="navbar navbar-expand-lg bg-primary mb-3 p-1" data-bs-theme="dark">
+    <nav class="navbar">
         <div class="container-fluid">
             <a class="navbar-brand" href="/">
                 <img src="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/src/logo%20(2).png" alt="Logo"
-                    height="40">
+                    height="36">
             </a>
-            <div class="d-flex">
-                <form action="/reload" method="get" role="reload" class="admin-only ">
-                    <button type="submit" class="btn btn-primary me-2" name="chatId" value="<!-- Chat_id -->">
-                        <i class="bi bi-arrow-clockwise" ></i>
+            <div class="d-flex gap-2 align-items-center">
+                <form action="/reload" method="get" role="reload" class="admin-only">
+                    <button type="submit" class="btn btn-sm" name="chatId" value="<!-- Chat_id -->"
+                        style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#e0e0e0;">
+                        <i class="bi bi-arrow-clockwise"></i>
                     </button>
                 </form>
-                <form id="signoutForm" action="/logout" method="post" class="d-flex" role="logout">
-                    <button type="submit" class="btn btn-secondary btn-sm"><i class="bi bi-box-arrow-left"></i>
-                        Logout</button>
+                <form id="signoutForm" action="/logout" method="post" role="logout">
+                    <button type="submit" class="btn btn-secondary btn-sm"
+                        style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#e0e0e0;">
+                        <i class="bi bi-box-arrow-left"></i> Logout</button>
                 </form>
             </div>
         </div>
     </nav>
-    <div class="container d-flex align-items-center justify-content-center">
-        <div class="card mx-auto text-center">
-            <div class="card-header"><!-- Title --></div>
-        </div>
-        <button type="button" class="admin-only btn btn-secondary btn-sm" data-bs-toggle="modal"
-            data-bs-target="#sendFileModal" onclick="sendPopupForm()">Send</button>
-    </div>
+
     <div class="container">
-        <form class="d-flex" style="margin: auto; padding-top: 10px; padding-bottom: 20px;"
-            action="/search/<!-- Chat_id -->" method="get">
-            <input class="form-control me-sm-2" type="search" placeholder="Search" name="q">
-            <button class="btn btn-secondary my-sm-0" type="submit">Search</button>
+        <div class="section-header">
+            <span class="section-title"><!-- Title --></span>
+            <button type="button" class="admin-only btn btn-secondary btn-sm" data-bs-toggle="modal"
+                data-bs-target="#sendFileModal" onclick="sendPopupForm()"
+                style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:#e0e0e0;">
+                <i class="bi bi-send"></i> Send</button>
+        </div>
+    </div>
+
+    <div class="container search-bar">
+        <form class="d-flex gap-2" action="/search/<!-- Chat_id -->" method="get">
+            <input class="form-control" type="search" placeholder="🔍 Search files..." name="q">
+            <button class="btn" type="submit">Search</button>
         </form>
     </div>
 
     <div class="container py-2">
-        <!-- Telegram File Grid Card  -->
-        <div class="row row-cols-2 row-cols-md-4 row-cols-lg-5 g-2">
+        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-2 content-grid">
             <!-- Telegram File Card  -->
             <!-- Print -->
         </div>
     </div>
-    <div class="container d-flex align-items-center justify-content-center">
-        <div>
-            <ul class="pagination">
-                <li class="page-item">
-                    <a class="page-link" id="prevButton" href="#">Previous</a>
-                </li>
-                <li class="page-item">
-                    <a class="page-link" id="nextButton" href="#">Next</a>
-                </li>
-            </ul>
-        </div>
+
+    <div class="container pagination-wrap">
+        <a class="page-btn" id="prevButton" href="#">← Previous</a>
+        <a class="page-btn" id="nextButton" href="#">Next →</a>
     </div>
-    <footer class="footer mt-auto py-3 text-muted text-center" style="color: white;">
-        <div class="container d-flex justify-content-center align-items-center" style="width: 100%; padding: 0 10px;">
-            <p class="float-end">
-            <p>Made with <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-heart-fill" fill="red"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path fill-rule="evenodd"
-                        d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314z" />
-                </svg> by <a href="https://github.com/weebzone" target="_blank">Karan Adhikari</a><br>
-                &copy; 2024 <a href="https://github.com/weebzone/Surf-TG" target="_blank">Surf-TG</a>. All Rights
-                Reserved.
-        </div>
+
+    <footer class="footer">
+        Made with ❤️ by <a href="https://github.com/weebzone" target="_blank">Karan Adhikari</a><br>
+        &copy; 2024 <a href="https://github.com/weebzone/Surf-TG" target="_blank">Surf-TG</a>
     </footer>
 </body>
 <script>
     document.addEventListener("DOMContentLoaded", function () {
         const prevButton = document.getElementById("prevButton");
         const nextButton = document.getElementById("nextButton");
-
         const url = new URL(window.location.href);
-        const chatId = url.pathname.match(/\/channel\/(-?\d+)/) ? url.pathname.match(/\/channel\/(-?\d+)/)[1] : null;
         const currentPage = url.searchParams.get("page") ? parseInt(url.searchParams.get("page")) : 1;
+        if (currentPage <= 1) prevButton.classList.add("disabled");
 
-        prevButton.addEventListener("click", function () {
-            if (currentPage > 1) {
-                navigateChannel(url.origin + url.pathname, currentPage - 1);
-            } else {
-                prevButton.classList.add("disabled");
-            }
+        prevButton.addEventListener("click", function (e) {
+            e.preventDefault();
+            if (currentPage > 1) navigateChannel(url.origin + url.pathname, currentPage - 1);
+        });
+        nextButton.addEventListener("click", function (e) {
+            e.preventDefault();
+            navigateChannel(url.origin + url.pathname, currentPage + 1);
         });
 
-        nextButton.addEventListener("click", function () {
-            navigateChannel(url.origin + url.pathname, currentPage + 1);
+        document.querySelectorAll('.content-grid .col').forEach(function (el, i) {
+            el.style.animationDelay = (i * 0.03) + 's';
         });
     });
 
     function navigateChannel(url, page) {
         const match = url.match(/\/(channel|search)\/(-?\d+)/);
         const chatId = match ? match[2] : null;
-
-        if (!chatId) {
-            alert("Invalid channel URL. Please provide a URL like http://127.0.0.1:8000/channel/-1001767698380");
-            return;
-        }
-
+        if (!chatId) return;
         const searchParams = new URLSearchParams(window.location.search);
         const searchQuery = searchParams.get('q');
         page = parseInt(page) || 1;
-
         let newUrl = url;
         if (searchQuery || page > 1) {
             newUrl += searchQuery ? `?q=${searchQuery}` : '';
             newUrl += page > 1 ? `${searchQuery ? '&' : '?'}page=${page}` : '';
         }
-
         window.location.href = newUrl;
     }
 </script>

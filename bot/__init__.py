@@ -1,9 +1,11 @@
 from time import time
 from logging import getLogger, FileHandler, StreamHandler, INFO, ERROR, basicConfig
 
-from uvloop import install
-
-install()
+try:
+    from uvloop import install
+    install()
+except ImportError:
+    pass  # uvloop not available on Windows
 basicConfig(format="[%(asctime)s] [%(levelname)s] - %(message)s",
             datefmt="%d-%b-%y %I:%M:%S %p",
             handlers=[FileHandler('log.txt'), StreamHandler()],

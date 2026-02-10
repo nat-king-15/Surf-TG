@@ -1,0 +1,8 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "bash surf-tg.sh"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

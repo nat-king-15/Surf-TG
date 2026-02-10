@@ -33,22 +33,22 @@ async def render_page(id, secure_hash, is_admin=False, html='', playlist='', dat
         theme = Telegram.THEME
     tpath = ospath.join('bot', 'server', 'template')
     if route == 'login':
-        async with aiopen(ospath.join(tpath, 'login.html'), 'r') as f:
+        async with aiopen(ospath.join(tpath, 'login.html'), 'r', encoding='utf-8') as f:
             html = (await f.read()).replace("<!-- Error -->", msg or '').replace("<!-- Theme -->", theme.lower()).replace("<!-- RedirectURL -->", redirect_url)
     elif route == 'home':
-        async with aiopen(ospath.join(tpath, 'home.html'), 'r') as f:
+        async with aiopen(ospath.join(tpath, 'home.html'), 'r', encoding='utf-8') as f:
             html = (await f.read()).replace("<!-- Print -->", html).replace("<!-- Theme -->", theme.lower()).replace("<!-- Playlist -->", playlist)
             if not is_admin:
                 html += admin_block
                 if Telegram.HIDE_CHANNEL:
                     html += hide_channel
     elif route == 'playlist':
-        async with aiopen(ospath.join(tpath, 'playlist.html'), 'r') as f:
+        async with aiopen(ospath.join(tpath, 'playlist.html'), 'r', encoding='utf-8') as f:
             html = (await f.read()).replace("<!-- Theme -->", theme.lower()).replace("<!-- Playlist -->", playlist).replace("<!-- Database -->", database).replace("<!-- Title -->", msg).replace("<!-- Parent_id -->", id)
             if not is_admin:
                 html += admin_block
     elif route == 'index':
-        async with aiopen(ospath.join(tpath, 'index.html'), 'r') as f:
+        async with aiopen(ospath.join(tpath, 'index.html'), 'r', encoding='utf-8') as f:
             html = (await f.read()).replace("<!-- Print -->", html).replace("<!-- Theme -->", theme.lower()).replace("<!-- Title -->", msg).replace("<!-- Chat_id -->", chat_id)
             if not is_admin:
                 html += admin_block
@@ -65,10 +65,13 @@ async def render_page(id, secure_hash, is_admin=False, html='', playlist='', dat
             filename = "Proper Filename is Missing"
         filename = re.sub(r'[,|_\',]', ' ', filename)
         if tag == 'video':
-            async with aiopen(ospath.join(tpath, 'video.html')) as r:
+            async with aiopen(ospath.join(tpath, 'video.html'), encoding='utf-8') as r:
                 poster = f"/api/thumb/{chat_id}?id={id}"
                 html = (await r.read()).replace('<!-- Filename -->', filename).replace("<!-- Theme -->", theme.lower()).replace('<!-- Poster -->', poster).replace('<!-- Size -->', size).replace('<!-- Username -->', StreamBot.me.username)
+        elif file_data.mime_type == 'application/pdf':
+            async with aiopen(ospath.join(tpath, 'pdf.html'), encoding='utf-8') as r:
+                html = (await r.read()).replace('<!-- Filename -->', filename).replace("<!-- Theme -->", theme.lower()).replace('<!-- Size -->', size).replace('<!-- Username -->', StreamBot.me.username)
         else:
-            async with aiopen(ospath.join(tpath, 'dl.html')) as r:
+            async with aiopen(ospath.join(tpath, 'dl.html'), encoding='utf-8') as r:
                 html = (await r.read()).replace('<!-- Filename -->', filename).replace("<!-- Theme -->", theme.lower()).replace('<!-- Size -->', size)
     return html
