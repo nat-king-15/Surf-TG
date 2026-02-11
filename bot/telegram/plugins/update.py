@@ -114,3 +114,91 @@ async def update_bot(bot: Client, message: Message):
 async def update_unauthorized(bot: Client, message: Message):
     """Respond to unauthorized /update attempts."""
     await message.reply("❌ You are not authorized to update this bot.", parse_mode=ParseMode.MARKDOWN)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# /logs - View bot logs in Telegram
+# ═══════════════════════════════════════════════════════════════════
+
+LOG_FILE = "log.txt"
+
+
+@StreamBot.on_message(filters.command('logs') & filters.private & owner_filter)
+async def view_logs(bot: Client, message: Message):
+    """
+    Send bot logs to the owner.
+    Usage:
+      /logs        → last 50 lines as message
+      /logs 100    → last 100 lines as message
+      /logs file   → send full log.txt as document
+    """
+    if Telegram.OWNER_ID == 0:
+        await message.reply("❌ `OWNER_ID` is not set in config.env!", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    if not os.path.exists(LOG_FILE):
+        await message.reply("❌ Log file not found.", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    # Parse argument
+    args = message.text.strip().split(maxsplit=1)
+    arg = args[1].strip().lower() if len(args) > 1 else ""
+
+    # /logs file → send as document
+    if arg == "file":
+        try:
+            file_size = os.path.getsize(LOG_FILE)
+            size_mb = file_size / (1024 * 1024)
+            await message.reply_document(
+                document=LOG_FILE,
+                caption=f"📋 **Bot Logs**\n💾 Size: {size_mb:.2f} MB",
+                parse_mode=ParseMode.MARKDOWN
+            )
+        except Exception as e:
+            await message.reply(f"❌ Error sending log file: `{e}`", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    # /logs [N] → send last N lines as text (default 50)
+    try:
+        num_lines = int(arg) if arg.isdigit() else 50
+        num_lines = min(num_lines, 200)  # cap at 200 to avoid flood
+    except ValueError:
+        num_lines = 50
+
+    try:
+        with open(LOG_FILE, "r", encoding="utf-8", errors="replace") as f:
+            all_lines = f.readlines()
+
+        total = len(all_lines)
+        tail = all_lines[-num_lines:]
+        log_text = "".join(tail).strip()
+
+        if not log_text:
+            await message.reply("📋 Log file is empty.", parse_mode=ParseMode.MARKDOWN)
+            return
+
+        header = f"📋 **Bot Logs** (last {len(tail)} of {total} lines)\n━━━━━━━━━━━━━━━━━━\n\n"
+
+        # Telegram message limit is ~4096 chars
+        max_len = 4096 - len(header) - 20
+        if len(log_text) > max_len:
+            log_text = log_text[-max_len:]
+            # Find first newline to avoid partial line
+            nl = log_text.find('\n')
+            if nl != -1:
+                log_text = log_text[nl + 1:]
+            header = f"📋 **Bot Logs** (truncated, last ~{len(tail)} lines)\n━━━━━━━━━━━━━━━━━━\n\n"
+
+        await message.reply(
+            f"{header}`{log_text}`",
+            parse_mode=ParseMode.MARKDOWN
+        )
+    except Exception as e:
+        LOGGER.error(f"Error reading logs: {e}")
+        await message.reply(f"❌ Error reading logs: `{e}`", parse_mode=ParseMode.MARKDOWN)
+
+
+@StreamBot.on_message(filters.command('logs') & filters.private & ~owner_filter)
+async def logs_unauthorized(bot: Client, message: Message):
+    """Respond to unauthorized /logs attempts."""
+    await message.reply("❌ You are not authorized to view logs.", parse_mode=ParseMode.MARKDOWN)
