@@ -721,7 +721,7 @@ async def browse_send_file_callback(bot: Client, query: CallbackQuery):
 async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
     """User clicked 'Play in VC' - stream video in auth channel voice chat."""
     try:
-        from bot.helper.vc_player import start_vc_stream, get_vc_invite_link, build_progress_bar
+        from bot.helper.vc_player import start_vc_stream, get_vc_invite_link, build_progress_bar, format_time
         
         parts = query.data.split("|")
         # bvc|msg_id|chat_id|hash

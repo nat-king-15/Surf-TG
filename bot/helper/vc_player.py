@@ -70,9 +70,6 @@ async def start_vc_stream(chat_id: int, stream_url: str, title: str = "",
         
         await call.play(int(chat_id), stream)
         
-        # Detect duration in background
-        duration = await get_media_duration(stream_url)
-        
         active_streams[int(chat_id)] = {
             "url": stream_url,
             "title": title,
@@ -84,8 +81,11 @@ async def start_vc_stream(chat_id: int, stream_url: str, title: str = "",
             "src_chat_id": src_chat_id,
             "folder_id": folder_id,
             "file_hash": file_hash,
-            "duration": duration,
+            "duration": 0,
         }
+        
+        # Detect duration in background (non-blocking)
+        asyncio.create_task(_detect_duration(int(chat_id), stream_url))
         
         return True, "Stream started"
     except Exception as e:
@@ -236,6 +236,17 @@ async def get_media_duration(url: str) -> int:
     except Exception as e:
         LOGGER.warning(f"Could not detect duration: {e}")
         return 0
+
+
+async def _detect_duration(chat_id: int, url: str):
+    """Background task to detect duration and update active_streams."""
+    try:
+        duration = await get_media_duration(url)
+        if duration > 0 and int(chat_id) in active_streams:
+            active_streams[int(chat_id)]["duration"] = duration
+            LOGGER.info(f"Duration updated for {chat_id}: {duration}s")
+    except Exception as e:
+        LOGGER.warning(f"Duration detection failed: {e}")
 
 
 def build_progress_bar(current_seconds: int, total_duration: int = 0, total_width: int = 15) -> str:
