@@ -766,7 +766,7 @@ async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
         await query.answer(f"❌ Error: {str(e)}", show_alert=True)
 
 
-async def _build_vc_controls(vc_chat_id: int, is_paused: bool = False, current_pos: int = 0, invite_link: str = None):
+async def _build_vc_controls(vc_chat_id: int, is_paused: bool = False, current_pos: int = 0, invite_link: str = None, duration: int = 0):
     """Build inline keyboard with clickable progress bar + controls + join VC."""
     from bot.helper.vc_player import get_vc_invite_link
     
@@ -779,12 +779,13 @@ async def _build_vc_controls(vc_chat_id: int, is_paused: bool = False, current_p
     if not invite_link:
         invite_link = await get_vc_invite_link(vc_chat_id)
     
-    # Build clickable progress bar: 8 segments, each = 15 min (total 2hr)
+    # Build clickable progress bar: 8 segments based on actual duration
     SEGMENTS = 8
-    SEGMENT_DURATION = 900  # 15 min in seconds
+    total = duration if duration > 0 else 7200  # fallback 2hr
+    seg_dur = total // SEGMENTS
     progress_bar = []
     for i in range(SEGMENTS):
-        seg_start = i * SEGMENT_DURATION
+        seg_start = i * seg_dur
         is_filled = current_pos >= seg_start
         symbol = "▓" if is_filled else "░"
         progress_bar.append(
@@ -823,16 +824,18 @@ async def _update_player_display(query, vc_chat_id: int, status_text: str = "Pla
     pos = int(get_current_position(vc_chat_id))
     is_paused = info.get("paused", False)
     status_emoji = "⏸" if is_paused else "▶️"
-    bar = build_progress_bar(pos)
+    duration = info.get("duration", 0)
+    bar = build_progress_bar(pos, duration)
+    dur_text = f" / {format_time(duration)}" if duration > 0 else ""
     
-    controls = await _build_vc_controls(vc_chat_id, is_paused, pos)
+    controls = await _build_vc_controls(vc_chat_id, is_paused, pos, duration=duration)
     
     try:
         await query.message.edit_text(
             f"🔊 **Now Playing in VC**\n"
             f"━━━━━━━━━━━━━━━━━━\n"
             f"🎬 {display_name}\n\n"
-            f"`{bar}` {format_time(pos)}\n\n"
+            f"`{bar}` {format_time(pos)}{dur_text}\n\n"
             f"{status_emoji} Status: {status_text}",
             reply_markup=controls,
             parse_mode=ParseMode.MARKDOWN

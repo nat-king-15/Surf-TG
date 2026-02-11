@@ -1,5 +1,6 @@
 import logging
 import time
+import asyncio
 from pytgcalls import PyTgCalls
 from pytgcalls.types import MediaStream
 from bot.telegram import UserBot
@@ -69,6 +70,9 @@ async def start_vc_stream(chat_id: int, stream_url: str, title: str = "",
         
         await call.play(int(chat_id), stream)
         
+        # Detect duration in background (don't block stream start)
+        duration = await get_media_duration(stream_url)
+        
         active_streams[int(chat_id)] = {
             "url": stream_url,
             "title": title,
@@ -80,6 +84,7 @@ async def start_vc_stream(chat_id: int, stream_url: str, title: str = "",
             "src_chat_id": src_chat_id,
             "folder_id": folder_id,
             "file_hash": file_hash,
+            "duration": duration,
         }
         
         return True, "Stream started"
@@ -201,10 +206,31 @@ def format_time(seconds: int) -> str:
     return f"{minutes}:{secs:02d}"
 
 
-def build_progress_bar(current_seconds: int, total_width: int = 15) -> str:
-    """Build a text progress bar. Assumes ~2hr max for class videos."""
-    MAX_DURATION = 7200  # 2 hours
-    filled = min(total_width, int((current_seconds / MAX_DURATION) * total_width))
+async def get_media_duration(url: str) -> int:
+    """Get media duration in seconds using ffprobe."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            'ffprobe', '-v', 'quiet',
+            '-show_entries', 'format=duration',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            url,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=15)
+        duration = float(stdout.decode().strip())
+        LOGGER.info(f"Detected duration: {duration}s for {url[:80]}")
+        return int(duration)
+    except Exception as e:
+        LOGGER.warning(f"Could not detect duration: {e}")
+        return 0
+
+
+def build_progress_bar(current_seconds: int, total_duration: int = 0, total_width: int = 15) -> str:
+    """Build a text progress bar based on actual duration."""
+    if total_duration <= 0:
+        total_duration = 7200  # fallback 2hr
+    filled = min(total_width, int((current_seconds / total_duration) * total_width))
     empty = total_width - filled
     return "▓" * filled + "░" * empty
 
