@@ -18,6 +18,9 @@ active_streams = {}
 # Cache invite links: {chat_id: invite_link}
 _invite_cache = {}
 
+# Auto-refresh tasks: {chat_id: asyncio.Task}
+_refresh_tasks = {}
+
 
 async def ensure_started():
     """Start PyTgCalls if not already started."""
@@ -35,7 +38,6 @@ async def get_vc_invite_link(chat_id: int) -> str:
         return _invite_cache[chat_id]
     
     try:
-        # Try with UserBot (more likely to have admin rights)
         link = await UserBot.export_chat_invite_link(chat_id)
         _invite_cache[chat_id] = link
         return link
@@ -43,7 +45,6 @@ async def get_vc_invite_link(chat_id: int) -> str:
         LOGGER.warning(f"Could not get invite link via UserBot: {e}")
     
     try:
-        # Try with Bot
         from bot.telegram import StreamBot
         link = await StreamBot.export_chat_invite_link(chat_id)
         _invite_cache[chat_id] = link
@@ -51,7 +52,6 @@ async def get_vc_invite_link(chat_id: int) -> str:
     except Exception as e:
         LOGGER.warning(f"Could not get invite link via Bot: {e}")
     
-    # Fallback: construct channel link
     clean = str(chat_id).replace("-100", "")
     return f"https://t.me/c/{clean}"
 
@@ -70,7 +70,7 @@ async def start_vc_stream(chat_id: int, stream_url: str, title: str = "",
         
         await call.play(int(chat_id), stream)
         
-        # Detect duration in background (don't block stream start)
+        # Detect duration in background
         duration = await get_media_duration(stream_url)
         
         active_streams[int(chat_id)] = {
@@ -99,6 +99,7 @@ async def start_vc_stream(chat_id: int, stream_url: str, title: str = "",
 async def stop_vc_stream(chat_id: int):
     """Stop the current VC stream and leave the voice chat."""
     try:
+        stop_auto_refresh(int(chat_id))
         await call.leave_call(int(chat_id))
         info = active_streams.pop(int(chat_id), None)
         LOGGER.info(f"VC stream stopped in {chat_id}")
@@ -111,7 +112,8 @@ async def stop_vc_stream(chat_id: int):
 async def pause_vc_stream(chat_id: int):
     """Pause the current VC stream."""
     try:
-        await call.pause_stream(int(chat_id))
+        # pytgcalls v2 uses call.pause() not call.pause_stream()
+        await call.pause(int(chat_id))
         info = active_streams.get(int(chat_id))
         if info:
             info["paused"] = True
@@ -124,7 +126,8 @@ async def pause_vc_stream(chat_id: int):
 async def resume_vc_stream(chat_id: int):
     """Resume the current VC stream."""
     try:
-        await call.resume_stream(int(chat_id))
+        # pytgcalls v2 uses call.resume() not call.resume_stream()
+        await call.resume(int(chat_id))
         info = active_streams.get(int(chat_id))
         if info:
             if info["pause_time"] > 0:
@@ -146,6 +149,11 @@ async def seek_vc_stream(chat_id: int, offset_seconds: int):
     
     current_pos = get_current_position(chat_id)
     new_pos = max(0, current_pos + offset_seconds)
+    
+    # Clamp to duration if known
+    duration = info.get("duration", 0)
+    if duration > 0:
+        new_pos = min(new_pos, duration)
     
     ffmpeg_params = f"-ss {int(new_pos)}" if new_pos > 0 else None
     stream = MediaStream(info["url"], ffmpeg_parameters=ffmpeg_params)
@@ -169,6 +177,10 @@ async def seek_to_position(chat_id: int, position_seconds: int):
         return False, "No active stream"
     
     position_seconds = max(0, position_seconds)
+    duration = info.get("duration", 0)
+    if duration > 0:
+        position_seconds = min(position_seconds, duration)
+    
     ffmpeg_params = f"-ss {position_seconds}" if position_seconds > 0 else None
     stream = MediaStream(info["url"], ffmpeg_parameters=ffmpeg_params)
     
@@ -229,7 +241,7 @@ async def get_media_duration(url: str) -> int:
 def build_progress_bar(current_seconds: int, total_duration: int = 0, total_width: int = 15) -> str:
     """Build a text progress bar based on actual duration."""
     if total_duration <= 0:
-        total_duration = 7200  # fallback 2hr
+        total_duration = 7200
     filled = min(total_width, int((current_seconds / total_duration) * total_width))
     empty = total_width - filled
     return "▓" * filled + "░" * empty
@@ -238,3 +250,102 @@ def build_progress_bar(current_seconds: int, total_duration: int = 0, total_widt
 def get_stream_info(chat_id: int) -> dict:
     """Get info about the active stream."""
     return active_streams.get(int(chat_id), None)
+
+
+def is_vc_playing() -> dict:
+    """Check if any VC stream is active. Returns first active stream info or None."""
+    for chat_id, info in active_streams.items():
+        return {"chat_id": chat_id, **info}
+    return None
+
+
+# --- Auto-refresh ---
+
+def start_auto_refresh(chat_id: int, message, bot):
+    """Start auto-refreshing the player display every 5 seconds."""
+    stop_auto_refresh(chat_id)
+    task = asyncio.create_task(_auto_refresh_loop(chat_id, message, bot))
+    _refresh_tasks[int(chat_id)] = task
+
+
+def stop_auto_refresh(chat_id: int):
+    """Stop auto-refresh for a chat."""
+    task = _refresh_tasks.pop(int(chat_id), None)
+    if task and not task.done():
+        task.cancel()
+
+
+async def _auto_refresh_loop(chat_id: int, message, bot):
+    """Background loop to refresh the player display every 5 seconds."""
+    try:
+        while int(chat_id) in active_streams:
+            await asyncio.sleep(5)
+            info = active_streams.get(int(chat_id))
+            if not info:
+                break
+            
+            try:
+                from bot.helper.vc_player import get_current_position, format_time, build_progress_bar, get_vc_invite_link
+                
+                display_name = info["title"][:30] + "…" if len(info["title"]) > 30 else info["title"]
+                pos = int(get_current_position(chat_id))
+                is_paused = info.get("paused", False)
+                status_emoji = "⏸" if is_paused else "▶️"
+                status_text = "Paused" if is_paused else "Playing"
+                duration = info.get("duration", 0)
+                bar = build_progress_bar(pos, duration)
+                dur_text = f" / {format_time(duration)}" if duration > 0 else ""
+                
+                # Build controls inline
+                from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+                
+                invite_link = await get_vc_invite_link(chat_id)
+                
+                pause_btn = InlineKeyboardButton(
+                    "▶️ Resume" if is_paused else "⏸ Pause",
+                    callback_data=f"{'bvr' if is_paused else 'bvp'}|{chat_id}"
+                )
+                
+                SEGMENTS = 8
+                total = duration if duration > 0 else 7200
+                seg_dur = max(1, total // SEGMENTS)
+                progress_bar = []
+                for i in range(SEGMENTS):
+                    seg_start = i * seg_dur
+                    symbol = "▓" if pos >= seg_start else "░"
+                    progress_bar.append(
+                        InlineKeyboardButton(symbol, callback_data=f"bvj|{chat_id}|{seg_start}")
+                    )
+                
+                controls = InlineKeyboardMarkup([
+                    [
+                        InlineKeyboardButton("⏪ -30s", callback_data=f"bvk|{chat_id}|-30"),
+                        pause_btn,
+                        InlineKeyboardButton("⏩ +30s", callback_data=f"bvk|{chat_id}|30"),
+                    ],
+                    progress_bar,
+                    [
+                        InlineKeyboardButton("⏹ Stop", callback_data=f"bvs|{chat_id}"),
+                        InlineKeyboardButton("🔊 Join VC", url=invite_link),
+                        InlineKeyboardButton("⬅️ Back", callback_data=f"bvb|{chat_id}"),
+                    ],
+                ])
+                
+                await message.edit_text(
+                    f"🔊 **Now Playing in VC**\n"
+                    f"━━━━━━━━━━━━━━━━━━\n"
+                    f"🎬 {display_name}\n\n"
+                    f"`{bar}` {format_time(pos)}{dur_text}\n\n"
+                    f"{status_emoji} Status: {status_text}",
+                    reply_markup=controls,
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                if "MESSAGE_NOT_MODIFIED" in str(e):
+                    continue
+                LOGGER.debug(f"Auto-refresh error: {e}")
+                break
+    except asyncio.CancelledError:
+        pass
+    except Exception as e:
+        LOGGER.debug(f"Auto-refresh loop ended: {e}")

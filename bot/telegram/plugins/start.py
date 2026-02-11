@@ -594,6 +594,20 @@ async def browse_folder_callback(bot: Client, query: CallbackQuery):
         
         text, keyboard = await _build_folder_keyboard(folder_id, channel_id, page)
         
+        # Add "Now Playing" banner if VC is active
+        from bot.helper.vc_player import is_vc_playing, get_current_position, format_time
+        vc_info = is_vc_playing()
+        if vc_info:
+            vc_title = vc_info["title"][:20] + "…" if len(vc_info["title"]) > 20 else vc_info["title"]
+            vc_pos = format_time(int(get_current_position(vc_info["chat_id"])))
+            vc_dur = format_time(vc_info.get("duration", 0)) if vc_info.get("duration", 0) > 0 else "?"
+            text = f"🔊 **Now Playing:** {vc_title} `{vc_pos}/{vc_dur}`\n\n{text}"
+            # Add Stop button at top of keyboard
+            vc_chat_id = vc_info["chat_id"]
+            vc_btn = [InlineKeyboardButton("⏹ Stop VC", callback_data=f"bvs|{vc_chat_id}"),
+                      InlineKeyboardButton("🔊 Open Player", callback_data=f"bvo|{vc_chat_id}")]
+            keyboard.inline_keyboard.insert(0, vc_btn)
+        
         await query.message.edit_text(
             text,
             reply_markup=keyboard,
@@ -744,21 +758,27 @@ async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
         )
         
         if success:
+            from bot.helper.vc_player import start_auto_refresh, get_stream_info
             # Get invite link for Join VC button
             invite_link = await get_vc_invite_link(vc_chat_id)
             
+            info = get_stream_info(vc_chat_id)
+            duration = info.get("duration", 0) if info else 0
+            dur_text = f" / {format_time(duration)}" if duration > 0 else ""
             display_name = fname[:30] + "…" if len(fname) > 30 else fname
-            bar = build_progress_bar(0)
-            controls = await _build_vc_controls(vc_chat_id, False, 0, invite_link)
-            await query.message.edit_text(
+            bar = build_progress_bar(0, duration)
+            controls = await _build_vc_controls(vc_chat_id, False, 0, invite_link, duration)
+            msg = await query.message.edit_text(
                 f"🔊 **Now Playing in VC**\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"🎬 {display_name}\n\n"
-                f"`{bar}` 0:00\n\n"
+                f"`{bar}` 0:00{dur_text}\n\n"
                 f"▶️ Status: Playing",
                 reply_markup=controls,
                 parse_mode=ParseMode.MARKDOWN
             )
+            # Start auto-refresh every 5 seconds
+            start_auto_refresh(vc_chat_id, query.message, bot)
         else:
             await query.answer(f"❌ {message}", show_alert=True)
     except Exception as e:
@@ -801,11 +821,11 @@ async def _build_vc_controls(vc_chat_id: int, is_paused: bool = False, current_p
         ],
         # Row 2: Clickable progress bar
         progress_bar,
-        # Row 3: Stop, Join VC, Refresh
+        # Row 3: Stop, Join VC, Back
         [
             InlineKeyboardButton("⏹ Stop", callback_data=f"bvs|{vc_chat_id}"),
             InlineKeyboardButton("🔊 Join VC", url=invite_link),
-            InlineKeyboardButton("🔄", callback_data=f"bvu|{vc_chat_id}"),
+            InlineKeyboardButton("⬅️ Back", callback_data=f"bvb|{vc_chat_id}"),
         ],
     ]
     
@@ -918,11 +938,38 @@ async def browse_vc_jump_callback(bot: Client, query: CallbackQuery):
         await query.answer(f"❌ {str(e)}", show_alert=True)
 
 
-@StreamBot.on_callback_query(filters.regex(r'^bvu\|'))
-async def browse_vc_refresh_callback(bot: Client, query: CallbackQuery):
-    """Refresh the player display with current position."""
+@StreamBot.on_callback_query(filters.regex(r'^bvb\|'))
+async def browse_vc_back_callback(bot: Client, query: CallbackQuery):
+    """Back button from VC player - go to browse root (VC keeps playing)."""
     try:
-        from bot.helper.vc_player import get_stream_info
+        from bot.helper.vc_player import get_stream_info, stop_auto_refresh
+        parts = query.data.split("|")
+        vc_chat_id = int(parts[1])
+        
+        # Stop auto-refresh for this message since we're leaving the player view
+        stop_auto_refresh(vc_chat_id)
+        
+        info = get_stream_info(vc_chat_id)
+        if info and info.get("src_chat_id"):
+            # Go back to the folder where the file was
+            channel_id = info["src_chat_id"]
+            folder_id = info.get("folder_id", "root")
+            query.data = f"bf|{folder_id}|{channel_id}|1"
+            await browse_folder_callback(bot, query)
+        else:
+            # Fallback: go to browse home
+            query.data = "browse_home"
+            await browse_home_callback(bot, query)
+        await query.answer()
+    except Exception as e:
+        await query.answer(f"❌ {str(e)}", show_alert=True)
+
+
+@StreamBot.on_callback_query(filters.regex(r'^bvo\|'))
+async def browse_vc_open_player_callback(bot: Client, query: CallbackQuery):
+    """Re-open the VC player from the Now Playing banner."""
+    try:
+        from bot.helper.vc_player import get_stream_info, start_auto_refresh
         parts = query.data.split("|")
         vc_chat_id = int(parts[1])
         
@@ -930,7 +977,9 @@ async def browse_vc_refresh_callback(bot: Client, query: CallbackQuery):
         if info:
             status = "Paused" if info.get("paused") else "Playing"
             await _update_player_display(query, vc_chat_id, status)
-            await query.answer("🔄 Refreshed")
+            # Restart auto-refresh for this message
+            start_auto_refresh(vc_chat_id, query.message, bot)
+            await query.answer()
         else:
             await query.answer("No active stream", show_alert=True)
     except Exception as e:
