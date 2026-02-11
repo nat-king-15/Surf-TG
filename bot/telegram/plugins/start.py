@@ -13,6 +13,7 @@ from os.path import splitext
 from pyrogram.errors import FloodWait
 from pyrogram.enums.parse_mode import ParseMode
 from asyncio import sleep, gather
+from urllib.parse import quote
 
 db = Database()
 
@@ -639,7 +640,6 @@ async def browse_file_callback(bot: Client, query: CallbackQuery):
         # Build URLs
         clean_chat_id = str(chat_id).replace("-100", "")
         base_url = Telegram.BASE_URL.rstrip('/')
-        from urllib.parse import quote
         encoded_name = quote(fname, safe='')
         stream_url = f"{base_url}/{clean_chat_id}/{encoded_name}?id={msg_id}&hash={file_hash}"
         watch_url = f"{base_url}/watch/{clean_chat_id}?id={msg_id}&hash={file_hash}"
@@ -652,10 +652,7 @@ async def browse_file_callback(bot: Client, query: CallbackQuery):
         
         if is_video:
             buttons.append([InlineKeyboardButton("▶️ Watch/Stream", url=watch_url)])
-            buttons.append([
-                InlineKeyboardButton("🎬 Open in Player", url=stream_url),
-                InlineKeyboardButton("⬇️ Download", url=stream_url)
-            ])
+            buttons.append([InlineKeyboardButton("🔊 Play in VC", callback_data=f"bvc|{msg_id}|{chat_id}|{file_hash}")])
         elif is_pdf:
             buttons.append([InlineKeyboardButton("📄 Open PDF", url=stream_url)])
             buttons.append([InlineKeyboardButton("⬇️ Download", url=stream_url)])
@@ -703,4 +700,86 @@ async def browse_send_file_callback(bot: Client, query: CallbackQuery):
         )
     except Exception as e:
         LOGGER.error(f"Send file error: {e}")
+        await query.answer(f"❌ Error: {str(e)}", show_alert=True)
+
+
+@StreamBot.on_callback_query(filters.regex(r'^bvc\|'))
+async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
+    """User clicked 'Play in VC' - stream video in auth channel voice chat."""
+    try:
+        from bot.helper.vc_player import start_vc_stream
+        
+        parts = query.data.split("|")
+        # bvc|msg_id|chat_id|hash
+        msg_id = parts[1]
+        chat_id = parts[2]
+        file_hash = parts[3] if len(parts) > 3 else ""
+        
+        # Build stream URL
+        clean_chat_id = str(chat_id).replace("-100", "")
+        base_url = Telegram.BASE_URL.rstrip('/')
+        
+        # Get file name from DB
+        fname = "stream"
+        file_doc = db.collection.find_one({"file_id": int(msg_id), "chat_id": chat_id, "type": "file"})
+        if not file_doc:
+            file_doc = db.collection.find_one({"file_id": int(msg_id), "chat_id": int(chat_id), "type": "file"})
+        if file_doc:
+            fname = file_doc.get('name', file_doc.get('title', 'stream'))
+        
+        encoded_name = quote(fname, safe='')
+        stream_url = f"{base_url}/{clean_chat_id}/{encoded_name}?id={msg_id}&hash={file_hash}"
+        
+        await query.answer("🔊 Starting VC stream...")
+        
+        # Use auth channel for VC
+        vc_chat_id = int(Telegram.AUTH_CHANNEL[0]) if Telegram.AUTH_CHANNEL else int(chat_id)
+        
+        success, message = await start_vc_stream(vc_chat_id, stream_url, fname)
+        
+        if success:
+            # Show stop button
+            folder_id = "root"
+            stop_buttons = InlineKeyboardMarkup([
+                [InlineKeyboardButton("⏹ Stop VC", callback_data=f"bvs|{vc_chat_id}")],
+                [InlineKeyboardButton("⬅️ Back", callback_data=f"bf|{folder_id}|{chat_id}|1")]
+            ])
+            display_name = fname[:35] + "…" if len(fname) > 35 else fname
+            await query.message.edit_text(
+                f"🔊 **Now Playing in VC**\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"🎬 {display_name}\n\n"
+                f"Streaming in voice chat...",
+                reply_markup=stop_buttons,
+                parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            await query.answer(f"❌ {message}", show_alert=True)
+    except Exception as e:
+        LOGGER.error(f"VC play error: {e}")
+        await query.answer(f"❌ Error: {str(e)}", show_alert=True)
+
+
+@StreamBot.on_callback_query(filters.regex(r'^bvs\|'))
+async def browse_vc_stop_callback(bot: Client, query: CallbackQuery):
+    """User clicked 'Stop VC' - stop current stream."""
+    try:
+        from bot.helper.vc_player import stop_vc_stream
+        
+        parts = query.data.split("|")
+        vc_chat_id = int(parts[1])
+        
+        success, message = await stop_vc_stream(vc_chat_id)
+        
+        if success:
+            await query.answer("⏹ Stream stopped")
+            await query.message.edit_text(
+                "⏹ **VC Stream Stopped**\n\n"
+                "Use /browse to start browsing again.",
+                parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            await query.answer(f"❌ {message}", show_alert=True)
+    except Exception as e:
+        LOGGER.error(f"VC stop error: {e}")
         await query.answer(f"❌ Error: {str(e)}", show_alert=True)
