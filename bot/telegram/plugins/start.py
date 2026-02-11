@@ -749,7 +749,7 @@ async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
             
             display_name = fname[:30] + "…" if len(fname) > 30 else fname
             bar = build_progress_bar(0)
-            controls = await _build_vc_controls(vc_chat_id, False, invite_link)
+            controls = await _build_vc_controls(vc_chat_id, False, 0, invite_link)
             await query.message.edit_text(
                 f"🔊 **Now Playing in VC**\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
@@ -766,8 +766,8 @@ async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
         await query.answer(f"❌ Error: {str(e)}", show_alert=True)
 
 
-async def _build_vc_controls(vc_chat_id: int, is_paused: bool = False, invite_link: str = None):
-    """Build inline keyboard with VC player controls + progress bar + join VC."""
+async def _build_vc_controls(vc_chat_id: int, is_paused: bool = False, current_pos: int = 0, invite_link: str = None):
+    """Build inline keyboard with clickable progress bar + controls + join VC."""
     from bot.helper.vc_player import get_vc_invite_link
     
     pause_btn = InlineKeyboardButton(
@@ -779,6 +779,18 @@ async def _build_vc_controls(vc_chat_id: int, is_paused: bool = False, invite_li
     if not invite_link:
         invite_link = await get_vc_invite_link(vc_chat_id)
     
+    # Build clickable progress bar: 8 segments, each = 15 min (total 2hr)
+    SEGMENTS = 8
+    SEGMENT_DURATION = 900  # 15 min in seconds
+    progress_bar = []
+    for i in range(SEGMENTS):
+        seg_start = i * SEGMENT_DURATION
+        is_filled = current_pos >= seg_start
+        symbol = "▓" if is_filled else "░"
+        progress_bar.append(
+            InlineKeyboardButton(symbol, callback_data=f"bvj|{vc_chat_id}|{seg_start}")
+        )
+    
     buttons = [
         # Row 1: Seek controls
         [
@@ -786,15 +798,8 @@ async def _build_vc_controls(vc_chat_id: int, is_paused: bool = False, invite_li
             pause_btn,
             InlineKeyboardButton("⏩ +30s", callback_data=f"bvk|{vc_chat_id}|30"),
         ],
-        # Row 2: Time jump progress bar
-        [
-            InlineKeyboardButton("0m", callback_data=f"bvj|{vc_chat_id}|0"),
-            InlineKeyboardButton("15m", callback_data=f"bvj|{vc_chat_id}|900"),
-            InlineKeyboardButton("30m", callback_data=f"bvj|{vc_chat_id}|1800"),
-            InlineKeyboardButton("45m", callback_data=f"bvj|{vc_chat_id}|2700"),
-            InlineKeyboardButton("1h", callback_data=f"bvj|{vc_chat_id}|3600"),
-            InlineKeyboardButton("1h30", callback_data=f"bvj|{vc_chat_id}|5400"),
-        ],
+        # Row 2: Clickable progress bar
+        progress_bar,
         # Row 3: Stop, Join VC, Refresh
         [
             InlineKeyboardButton("⏹ Stop", callback_data=f"bvs|{vc_chat_id}"),
@@ -820,7 +825,7 @@ async def _update_player_display(query, vc_chat_id: int, status_text: str = "Pla
     status_emoji = "⏸" if is_paused else "▶️"
     bar = build_progress_bar(pos)
     
-    controls = await _build_vc_controls(vc_chat_id, is_paused)
+    controls = await _build_vc_controls(vc_chat_id, is_paused, pos)
     
     try:
         await query.message.edit_text(
