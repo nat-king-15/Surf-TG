@@ -5,6 +5,7 @@ from pytgcalls import PyTgCalls
 from pytgcalls.types import MediaStream
 from bot.telegram import UserBot
 from bot.config import Telegram
+from pyrogram.raw import functions
 
 LOGGER = logging.getLogger(__name__)
 
@@ -86,6 +87,9 @@ async def start_vc_stream(chat_id: int, stream_url: str, title: str = "",
         
         # Detect duration in background (non-blocking)
         asyncio.create_task(_detect_duration(int(chat_id), stream_url))
+        
+        # Update VC title in background (non-blocking)
+        asyncio.create_task(_update_vc_title(int(chat_id), title))
         
         return True, "Stream started"
     except Exception as e:
@@ -247,6 +251,28 @@ async def _detect_duration(chat_id: int, url: str):
             LOGGER.info(f"Duration updated for {chat_id}: {duration}s")
     except Exception as e:
         LOGGER.warning(f"Duration detection failed: {e}")
+
+
+async def _update_vc_title(chat_id: int, title: str):
+    """Update the VC title to match the playing media."""
+    try:
+        if not title:
+            return
+            
+        # Wait a bit for VC to be fully established
+        await asyncio.sleep(2)
+        
+        peer = await UserBot.resolve_peer(chat_id)
+        chat_info = await UserBot.invoke(functions.channels.GetFullChannel(channel=peer))
+        
+        if chat_info.full_chat.call:
+            await UserBot.invoke(functions.phone.EditGroupCallTitle(
+                call=chat_info.full_chat.call,
+                title=title
+            ))
+            LOGGER.info(f"Updated VC title for {chat_id} to: {title}")
+    except Exception as e:
+        LOGGER.warning(f"Failed to update VC title: {e}")
 
 
 def build_progress_bar(current_seconds: int, total_duration: int = 0, total_width: int = 25) -> str:
