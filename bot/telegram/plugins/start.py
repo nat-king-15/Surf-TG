@@ -949,11 +949,13 @@ async def browse_vc_stop_callback(bot: Client, query: CallbackQuery):
         await query.answer("⏹ Stream stopped")
         
         # Navigate back to file action menu
+        # bfi format: bfi|msg_id|chat_id|hash|folder_id
         if stream_info and stream_info.get("msg_id") and stream_info.get("src_chat_id"):
             back_msg_id = stream_info["msg_id"]
             back_chat_id = stream_info["src_chat_id"]
             back_folder = stream_info.get("folder_id", "root")
-            query.data = f"bfi|{back_msg_id}|{back_chat_id}|{back_folder}"
+            back_hash = stream_info.get("file_hash", "")
+            query.data = f"bfi|{back_msg_id}|{back_chat_id}|{back_hash}|{back_folder}"
             await browse_file_callback(bot, query)
         else:
             await query.message.edit_text(
