@@ -624,11 +624,12 @@ async def browse_file_callback(bot: Client, query: CallbackQuery):
             file_doc = db.collection.find_one({"file_id": int(msg_id), "chat_id": int(chat_id), "type": "file"})
         if not file_doc:
             file_doc = db.collection.find_one({"file_id": str(msg_id), "chat_id": chat_id, "type": "file"})
+        file_type = ""
         if file_doc:
             fname = file_doc.get('name', file_doc.get('title', 'File'))
+            file_type = file_doc.get('file_type', '')
             raw_size = file_doc.get('size', file_doc.get('file_size', 0))
             if isinstance(raw_size, str) and not raw_size.isdigit():
-                # Legacy: size stored as readable string like '117.74 MB'
                 fsize = raw_size
             elif raw_size is not None:
                 fsize = get_readable_file_size(int(raw_size))
@@ -638,20 +639,40 @@ async def browse_file_callback(bot: Client, query: CallbackQuery):
         # Build URLs
         clean_chat_id = str(chat_id).replace("-100", "")
         base_url = Telegram.BASE_URL.rstrip('/')
+        from urllib.parse import quote
+        encoded_name = quote(fname, safe='')
+        stream_url = f"{base_url}/{clean_chat_id}/{encoded_name}?id={msg_id}&hash={file_hash}"
         watch_url = f"{base_url}/watch/{clean_chat_id}?id={msg_id}&hash={file_hash}"
         msg_url = f"https://t.me/c/{clean_chat_id}/{msg_id}"
         
-        # Action buttons
-        action_buttons = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📥 Send to Bot", callback_data=f"bs|{msg_id}|{chat_id}")],
-            [InlineKeyboardButton("🌐 Watch/Stream", url=watch_url)],
-            [InlineKeyboardButton("💬 Jump to Message", url=msg_url)],
-            [InlineKeyboardButton("⬅️ Back", callback_data=f"bf|{folder_id}|{chat_id}|1")]
-        ])
+        # Build action buttons based on file type
+        buttons = []
+        is_video = file_type and ('video' in file_type.lower())
+        is_pdf = file_type and ('pdf' in file_type.lower())
+        
+        if is_video:
+            buttons.append([InlineKeyboardButton("▶️ Watch/Stream", url=watch_url)])
+            buttons.append([
+                InlineKeyboardButton("🎬 Open in Player", url=stream_url),
+                InlineKeyboardButton("⬇️ Download", url=stream_url)
+            ])
+        elif is_pdf:
+            buttons.append([InlineKeyboardButton("📄 Open PDF", url=stream_url)])
+            buttons.append([InlineKeyboardButton("⬇️ Download", url=stream_url)])
+        else:
+            buttons.append([InlineKeyboardButton("📂 Open File", url=stream_url)])
+            buttons.append([InlineKeyboardButton("⬇️ Download", url=stream_url)])
+        
+        buttons.append([InlineKeyboardButton("📥 Send to Bot", callback_data=f"bs|{msg_id}|{chat_id}")])
+        buttons.append([InlineKeyboardButton("💬 Jump to Message", url=msg_url)])
+        buttons.append([InlineKeyboardButton("⬅️ Back", callback_data=f"bf|{folder_id}|{chat_id}|1")])
+        
+        action_buttons = InlineKeyboardMarkup(buttons)
         
         display_name = fname[:35] + "…" if len(fname) > 35 else fname
+        file_icon = "🎬" if is_video else "📄" if is_pdf else "📁"
         await query.message.edit_text(
-            f"📄 **{display_name}**\n"
+            f"{file_icon} **{display_name}**\n"
             f"━━━━━━━━━━━━━━━━━━\n"
             f"💾 Size: {fsize}\n\n"
             f"Choose an action:",
