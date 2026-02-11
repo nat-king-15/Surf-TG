@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 
 if Path("config.env").exists():
-    load_dotenv("config.env")
+    load_dotenv("config.env", override=True)
 
 class Telegram:
     API_ID = int(getenv("API_ID", "0"))

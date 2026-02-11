@@ -202,3 +202,29 @@ async def view_logs(bot: Client, message: Message):
 async def logs_unauthorized(bot: Client, message: Message):
     """Respond to unauthorized /logs attempts."""
     await message.reply("❌ You are not authorized to view logs.", parse_mode=ParseMode.MARKDOWN)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# /status - Show bot config & debug info
+# ═══════════════════════════════════════════════════════════════════
+
+@StreamBot.on_message(filters.command('status') & filters.private & owner_filter)
+async def status_command(bot: Client, message: Message):
+    """Show current bot config values for debugging."""
+    from bot import __version__
+    
+    base_url = Telegram.BASE_URL or "(empty)"
+    env_base = os.getenv("BASE_URL", "(not set)")
+    
+    await message.reply(
+        f"🤖 **Surf-TG v{__version__}**\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🌐 **BASE\\_URL (config):** `{base_url}`\n"
+        f"🌐 **BASE\\_URL (env):** `{env_base}`\n"
+        f"🔌 **PORT:** `{Telegram.PORT}`\n"
+        f"📺 **AUTH\\_CHANNEL:** `{Telegram.AUTH_CHANNEL}`\n"
+        f"👤 **OWNER\\_ID:** `{Telegram.OWNER_ID}`\n"
+        f"🔧 **WORKERS:** `{Telegram.WORKERS}`\n"
+        f"🎨 **THEME:** `{Telegram.THEME}`\n",
+        parse_mode=ParseMode.MARKDOWN
+    )
