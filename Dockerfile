@@ -1,15 +1,15 @@
 # ----------------------------------------------------------------------
 # Stage 1: Build Stage (Only includes tools necessary for installation)
 # ----------------------------------------------------------------------
-FROM python:3.12-alpine AS builder
+FROM python:3.12-slim AS builder
 
-# Install build dependencies (for compiling C extensions like tgcrypto, ntgcalls) and 'bash'.
-RUN apk add --no-cache \
-        bash \
-        build-base \
+# Install build dependencies (for compiling C extensions like tgcrypto, ntgcalls).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
         libffi-dev \
-        openssl-dev \
-        cmake
+        libssl-dev \
+        cmake \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
 WORKDIR /app
@@ -29,7 +29,7 @@ COPY . /app
 # ----------------------------------------------------------------------
 # Stage 2: Final Stage (Minimal Runtime Image)
 # ----------------------------------------------------------------------
-FROM python:3.12-alpine
+FROM python:3.12-slim
 
 # Set the working directory
 WORKDIR /app
@@ -38,7 +38,11 @@ WORKDIR /app
 # 1. 'bash' for your CMD ["bash", "surf-tg.sh"].
 # 2. 'git' because your deployed application/script needs it at runtime.
 # 3. 'ffmpeg' for pytgcalls VC streaming.
-RUN apk add --no-cache bash git ffmpeg
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        bash \
+        git \
+        ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy the installed Python dependencies from the 'builder' stage
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
