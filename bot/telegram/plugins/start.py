@@ -707,7 +707,7 @@ async def browse_send_file_callback(bot: Client, query: CallbackQuery):
 async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
     """User clicked 'Play in VC' - stream video in auth channel voice chat."""
     try:
-        from bot.helper.vc_player import start_vc_stream
+        from bot.helper.vc_player import start_vc_stream, get_vc_invite_link, build_progress_bar
         
         parts = query.data.split("|")
         # bvc|msg_id|chat_id|hash
@@ -744,15 +744,18 @@ async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
         )
         
         if success:
+            # Get invite link for Join VC button
+            invite_link = await get_vc_invite_link(vc_chat_id)
+            
             display_name = fname[:30] + "…" if len(fname) > 30 else fname
-            controls = _build_vc_controls(vc_chat_id, False)
+            bar = build_progress_bar(0)
+            controls = await _build_vc_controls(vc_chat_id, False, invite_link)
             await query.message.edit_text(
                 f"🔊 **Now Playing in VC**\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
-                f"🎬 {display_name}\n"
-                f"⏱ Position: 0:00\n"
-                f"▶️ Status: Playing\n\n"
-                f"🎧 Join the voice chat to listen!",
+                f"🎬 {display_name}\n\n"
+                f"`{bar}` 0:00\n\n"
+                f"▶️ Status: Playing",
                 reply_markup=controls,
                 parse_mode=ParseMode.MARKDOWN
             )
@@ -763,29 +766,49 @@ async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
         await query.answer(f"❌ Error: {str(e)}", show_alert=True)
 
 
-def _build_vc_controls(vc_chat_id: int, is_paused: bool = False):
-    """Build inline keyboard with VC player controls."""
+async def _build_vc_controls(vc_chat_id: int, is_paused: bool = False, invite_link: str = None):
+    """Build inline keyboard with VC player controls + progress bar + join VC."""
+    from bot.helper.vc_player import get_vc_invite_link
+    
     pause_btn = InlineKeyboardButton(
         "▶️ Resume" if is_paused else "⏸ Pause",
         callback_data=f"{'bvr' if is_paused else 'bvp'}|{vc_chat_id}"
     )
     
-    return InlineKeyboardMarkup([
+    # Get invite link if not provided
+    if not invite_link:
+        invite_link = await get_vc_invite_link(vc_chat_id)
+    
+    buttons = [
+        # Row 1: Seek controls
         [
             InlineKeyboardButton("⏪ -30s", callback_data=f"bvk|{vc_chat_id}|-30"),
             pause_btn,
             InlineKeyboardButton("⏩ +30s", callback_data=f"bvk|{vc_chat_id}|30"),
         ],
+        # Row 2: Time jump progress bar
+        [
+            InlineKeyboardButton("0m", callback_data=f"bvj|{vc_chat_id}|0"),
+            InlineKeyboardButton("15m", callback_data=f"bvj|{vc_chat_id}|900"),
+            InlineKeyboardButton("30m", callback_data=f"bvj|{vc_chat_id}|1800"),
+            InlineKeyboardButton("45m", callback_data=f"bvj|{vc_chat_id}|2700"),
+            InlineKeyboardButton("1h", callback_data=f"bvj|{vc_chat_id}|3600"),
+            InlineKeyboardButton("1h30", callback_data=f"bvj|{vc_chat_id}|5400"),
+        ],
+        # Row 3: Stop, Join VC, Refresh
         [
             InlineKeyboardButton("⏹ Stop", callback_data=f"bvs|{vc_chat_id}"),
-            InlineKeyboardButton("🔄 Refresh", callback_data=f"bvu|{vc_chat_id}"),
+            InlineKeyboardButton("🔊 Join VC", url=invite_link),
+            InlineKeyboardButton("🔄", callback_data=f"bvu|{vc_chat_id}"),
         ],
-    ])
+    ]
+    
+    return InlineKeyboardMarkup(buttons)
 
 
 async def _update_player_display(query, vc_chat_id: int, status_text: str = "Playing"):
-    """Update the player message with current info."""
-    from bot.helper.vc_player import get_stream_info, get_current_position, format_time
+    """Update the player message with current position and progress bar."""
+    from bot.helper.vc_player import get_stream_info, get_current_position, format_time, build_progress_bar
     
     info = get_stream_info(vc_chat_id)
     if not info:
@@ -795,17 +818,17 @@ async def _update_player_display(query, vc_chat_id: int, status_text: str = "Pla
     pos = int(get_current_position(vc_chat_id))
     is_paused = info.get("paused", False)
     status_emoji = "⏸" if is_paused else "▶️"
+    bar = build_progress_bar(pos)
     
-    controls = _build_vc_controls(vc_chat_id, is_paused)
+    controls = await _build_vc_controls(vc_chat_id, is_paused)
     
     try:
         await query.message.edit_text(
             f"🔊 **Now Playing in VC**\n"
             f"━━━━━━━━━━━━━━━━━━\n"
-            f"🎬 {display_name}\n"
-            f"⏱ Position: {format_time(pos)}\n"
-            f"{status_emoji} Status: {status_text}\n\n"
-            f"🎧 Join the voice chat to listen!",
+            f"🎬 {display_name}\n\n"
+            f"`{bar}` {format_time(pos)}\n\n"
+            f"{status_emoji} Status: {status_text}",
             reply_markup=controls,
             parse_mode=ParseMode.MARKDOWN
         )
@@ -858,8 +881,27 @@ async def browse_vc_seek_callback(bot: Client, query: CallbackQuery):
         vc_chat_id = int(parts[1])
         offset = int(parts[2])
         
-        await query.answer(f"⏩ Seeking {'+' if offset > 0 else ''}{offset}s...")
+        await query.answer(f"{'⏩' if offset > 0 else '⏪'} {'+' if offset > 0 else ''}{offset}s")
         success, msg = await seek_vc_stream(vc_chat_id, offset)
+        if success:
+            await _update_player_display(query, vc_chat_id, "Playing")
+        else:
+            await query.answer(f"❌ {msg}", show_alert=True)
+    except Exception as e:
+        await query.answer(f"❌ {str(e)}", show_alert=True)
+
+
+@StreamBot.on_callback_query(filters.regex(r'^bvj\|'))
+async def browse_vc_jump_callback(bot: Client, query: CallbackQuery):
+    """Jump to a specific time position."""
+    try:
+        from bot.helper.vc_player import seek_to_position, format_time
+        parts = query.data.split("|")
+        vc_chat_id = int(parts[1])
+        position = int(parts[2])
+        
+        await query.answer(f"⏭ Jump to {format_time(position)}")
+        success, msg = await seek_to_position(vc_chat_id, position)
         if success:
             await _update_player_display(query, vc_chat_id, "Playing")
         else:
@@ -903,7 +945,6 @@ async def browse_vc_stop_callback(bot: Client, query: CallbackQuery):
             back_msg_id = stream_info["msg_id"]
             back_chat_id = stream_info["src_chat_id"]
             back_folder = stream_info.get("folder_id", "root")
-            back_hash = stream_info.get("file_hash", "")
             query.data = f"bfi|{back_msg_id}|{back_chat_id}|{back_folder}"
             await browse_file_callback(bot, query)
         else:

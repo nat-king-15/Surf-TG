@@ -11,8 +11,11 @@ LOGGER = logging.getLogger(__name__)
 call = PyTgCalls(UserBot)
 _started = False
 
-# Track active streams: {chat_id: {url, title, start_time, seek_offset, paused, msg_id, src_chat_id, folder_id}}
+# Track active streams: {chat_id: {url, title, start_time, seek_offset, paused, ...}}
 active_streams = {}
+
+# Cache invite links: {chat_id: invite_link}
+_invite_cache = {}
 
 
 async def ensure_started():
@@ -24,6 +27,34 @@ async def ensure_started():
         LOGGER.info("PyTgCalls started")
 
 
+async def get_vc_invite_link(chat_id: int) -> str:
+    """Get or create invite link for the VC channel."""
+    chat_id = int(chat_id)
+    if chat_id in _invite_cache:
+        return _invite_cache[chat_id]
+    
+    try:
+        # Try with UserBot (more likely to have admin rights)
+        link = await UserBot.export_chat_invite_link(chat_id)
+        _invite_cache[chat_id] = link
+        return link
+    except Exception as e:
+        LOGGER.warning(f"Could not get invite link via UserBot: {e}")
+    
+    try:
+        # Try with Bot
+        from bot.telegram import StreamBot
+        link = await StreamBot.export_chat_invite_link(chat_id)
+        _invite_cache[chat_id] = link
+        return link
+    except Exception as e:
+        LOGGER.warning(f"Could not get invite link via Bot: {e}")
+    
+    # Fallback: construct channel link
+    clean = str(chat_id).replace("-100", "")
+    return f"https://t.me/c/{clean}"
+
+
 async def start_vc_stream(chat_id: int, stream_url: str, title: str = "",
                           seek_seconds: int = 0, msg_id: str = "", src_chat_id: str = "",
                           folder_id: str = "root", file_hash: str = ""):
@@ -33,15 +64,11 @@ async def start_vc_stream(chat_id: int, stream_url: str, title: str = "",
     try:
         LOGGER.info(f"Starting VC stream in {chat_id}: {title} (seek: {seek_seconds}s)")
         
-        # Build ffmpeg parameters for seeking
         ffmpeg_params = f"-ss {seek_seconds}" if seek_seconds > 0 else None
-        
         stream = MediaStream(stream_url, ffmpeg_parameters=ffmpeg_params)
         
-        # play() will join VC if not joined, or replace stream if already in VC
         await call.play(int(chat_id), stream)
         
-        # Track stream info
         active_streams[int(chat_id)] = {
             "url": stream_url,
             "title": title,
@@ -106,7 +133,7 @@ async def resume_vc_stream(chat_id: int):
 
 
 async def seek_vc_stream(chat_id: int, offset_seconds: int):
-    """Seek by restarting the stream with new ffmpeg offset (fast - no VC rejoin)."""
+    """Seek by restarting the stream with new ffmpeg offset."""
     chat_id = int(chat_id)
     info = active_streams.get(chat_id)
     if not info:
@@ -115,13 +142,11 @@ async def seek_vc_stream(chat_id: int, offset_seconds: int):
     current_pos = get_current_position(chat_id)
     new_pos = max(0, current_pos + offset_seconds)
     
-    # Build ffmpeg params and replace stream directly (no leave+rejoin)
     ffmpeg_params = f"-ss {int(new_pos)}" if new_pos > 0 else None
     stream = MediaStream(info["url"], ffmpeg_parameters=ffmpeg_params)
     
     try:
         await call.play(chat_id, stream)
-        # Update tracking
         info["start_time"] = time.time()
         info["seek_offset"] = int(new_pos)
         info["paused"] = False
@@ -129,6 +154,28 @@ async def seek_vc_stream(chat_id: int, offset_seconds: int):
         return True, f"Seeked to {format_time(int(new_pos))}"
     except Exception as e:
         return False, f"Seek error: {str(e)}"
+
+
+async def seek_to_position(chat_id: int, position_seconds: int):
+    """Seek to an absolute position."""
+    chat_id = int(chat_id)
+    info = active_streams.get(chat_id)
+    if not info:
+        return False, "No active stream"
+    
+    position_seconds = max(0, position_seconds)
+    ffmpeg_params = f"-ss {position_seconds}" if position_seconds > 0 else None
+    stream = MediaStream(info["url"], ffmpeg_parameters=ffmpeg_params)
+    
+    try:
+        await call.play(chat_id, stream)
+        info["start_time"] = time.time()
+        info["seek_offset"] = position_seconds
+        info["paused"] = False
+        info["pause_time"] = 0
+        return True, f"Jumped to {format_time(position_seconds)}"
+    except Exception as e:
+        return False, f"Jump error: {str(e)}"
 
 
 def get_current_position(chat_id: int) -> float:
@@ -145,12 +192,21 @@ def get_current_position(chat_id: int) -> float:
 
 def format_time(seconds: int) -> str:
     """Format seconds into HH:MM:SS or MM:SS string."""
+    seconds = max(0, int(seconds))
     hours = seconds // 3600
     minutes = (seconds % 3600) // 60
     secs = seconds % 60
     if hours > 0:
         return f"{hours}:{minutes:02d}:{secs:02d}"
     return f"{minutes}:{secs:02d}"
+
+
+def build_progress_bar(current_seconds: int, total_width: int = 15) -> str:
+    """Build a text progress bar. Assumes ~2hr max for class videos."""
+    MAX_DURATION = 7200  # 2 hours
+    filled = min(total_width, int((current_seconds / MAX_DURATION) * total_width))
+    empty = total_width - filled
+    return "▓" * filled + "░" * empty
 
 
 def get_stream_info(chat_id: int) -> dict:
