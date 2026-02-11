@@ -23,3 +23,6 @@ class Telegram:
     WORKERS = int(getenv('WORKERS', '10'))
     MULTI_CLIENT = getenv('MULTI_CLIENT', 'False')
     HIDE_CHANNEL = getenv('HIDE_CHANNEL', 'False')
+    OWNER_ID = int(getenv('OWNER_ID', '0'))
+    UPSTREAM_REPO = getenv('UPSTREAM_REPO', 'https://github.com/nat-king-15/Surf-TG')
+    UPSTREAM_BRANCH = getenv('UPSTREAM_BRANCH', 'main')

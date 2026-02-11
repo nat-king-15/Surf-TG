@@ -66,6 +66,12 @@ async def start_vc_stream(chat_id: int, stream_url: str, title: str = "",
     try:
         LOGGER.info(f"Starting VC stream in {chat_id}: {title} (seek: {seek_seconds}s)")
         
+        # Patch: Use localhost for internal streaming to avoid NAT Loopback issues on VPS
+        base_url = Telegram.BASE_URL.rstrip('/')
+        if stream_url.startswith(base_url):
+            stream_url = stream_url.replace(base_url, f"http://127.0.0.1:{Telegram.PORT}")
+            LOGGER.info(f"Rewrote stream URL to localhost: {stream_url}")
+        
         ffmpeg_params = f"-ss {seek_seconds}" if seek_seconds > 0 else None
         stream = MediaStream(stream_url, ffmpeg_parameters=ffmpeg_params)
         
