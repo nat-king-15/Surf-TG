@@ -707,7 +707,7 @@ async def browse_send_file_callback(bot: Client, query: CallbackQuery):
 async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
     """User clicked 'Play in VC' - stream video in auth channel voice chat."""
     try:
-        from bot.helper.vc_player import start_vc_stream
+        from bot.helper.vc_player import start_vc_stream, format_time
         
         parts = query.data.split("|")
         # bvc|msg_id|chat_id|hash
@@ -738,19 +738,31 @@ async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
         success, message = await start_vc_stream(vc_chat_id, stream_url, fname)
         
         if success:
-            # Show stop button
-            folder_id = "root"
-            stop_buttons = InlineKeyboardMarkup([
-                [InlineKeyboardButton("⏹ Stop VC", callback_data=f"bvs|{vc_chat_id}")],
-                [InlineKeyboardButton("⬅️ Back", callback_data=f"bf|{folder_id}|{chat_id}|1")]
+            # Build VC join link
+            vc_clean = str(vc_chat_id).replace("-100", "")
+            vc_link = f"https://t.me/c/{vc_clean}?voicechat"
+            
+            display_name = fname[:30] + "…" if len(fname) > 30 else fname
+            controls = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("⏪ -20s", callback_data=f"bvk|{vc_chat_id}|-20"),
+                    InlineKeyboardButton("⏸ Pause", callback_data=f"bvp|{vc_chat_id}"),
+                    InlineKeyboardButton("⏩ +20s", callback_data=f"bvk|{vc_chat_id}|20"),
+                ],
+                [
+                    InlineKeyboardButton("⏹ Stop", callback_data=f"bvs|{vc_chat_id}"),
+                    InlineKeyboardButton("🔊 Join VC", url=vc_link),
+                ],
+                [InlineKeyboardButton("🔄 Refresh", callback_data=f"bvu|{vc_chat_id}")],
             ])
-            display_name = fname[:35] + "…" if len(fname) > 35 else fname
             await query.message.edit_text(
                 f"🔊 **Now Playing in VC**\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
-                f"🎬 {display_name}\n\n"
-                f"Streaming in voice chat...",
-                reply_markup=stop_buttons,
+                f"🎬 {display_name}\n"
+                f"⏱ Position: 0:00\n"
+                f"▶️ Status: Playing\n\n"
+                f"🎧 Click **Join VC** to listen!",
+                reply_markup=controls,
                 parse_mode=ParseMode.MARKDOWN
             )
         else:
@@ -760,17 +772,143 @@ async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
         await query.answer(f"❌ Error: {str(e)}", show_alert=True)
 
 
+def _build_vc_controls(vc_chat_id: int, is_paused: bool = False):
+    """Build inline keyboard with VC player controls."""
+    vc_clean = str(vc_chat_id).replace("-100", "")
+    vc_link = f"https://t.me/c/{vc_clean}?voicechat"
+    
+    pause_btn = InlineKeyboardButton(
+        "▶️ Resume" if is_paused else "⏸ Pause",
+        callback_data=f"{'bvr' if is_paused else 'bvp'}|{vc_chat_id}"
+    )
+    
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("⏪ -20s", callback_data=f"bvk|{vc_chat_id}|-20"),
+            pause_btn,
+            InlineKeyboardButton("⏩ +20s", callback_data=f"bvk|{vc_chat_id}|20"),
+        ],
+        [
+            InlineKeyboardButton("⏹ Stop", callback_data=f"bvs|{vc_chat_id}"),
+            InlineKeyboardButton("🔊 Join VC", url=vc_link),
+        ],
+        [InlineKeyboardButton("🔄 Refresh", callback_data=f"bvu|{vc_chat_id}")],
+    ])
+
+
+async def _update_player_display(query, vc_chat_id: int, status_text: str = "Playing"):
+    """Update the player message with current info."""
+    from bot.helper.vc_player import get_stream_info, get_current_position, format_time
+    
+    info = get_stream_info(vc_chat_id)
+    if not info:
+        return
+    
+    display_name = info["title"][:30] + "…" if len(info["title"]) > 30 else info["title"]
+    pos = int(get_current_position(vc_chat_id))
+    is_paused = info.get("paused", False)
+    status_emoji = "⏸" if is_paused else "▶️"
+    
+    controls = _build_vc_controls(vc_chat_id, is_paused)
+    
+    try:
+        await query.message.edit_text(
+            f"🔊 **Now Playing in VC**\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"🎬 {display_name}\n"
+            f"⏱ Position: {format_time(pos)}\n"
+            f"{status_emoji} Status: {status_text}\n\n"
+            f"🎧 Click **Join VC** to listen!",
+            reply_markup=controls,
+            parse_mode=ParseMode.MARKDOWN
+        )
+    except Exception:
+        pass  # Message not modified
+
+
+@StreamBot.on_callback_query(filters.regex(r'^bvp\|'))
+async def browse_vc_pause_callback(bot: Client, query: CallbackQuery):
+    """Pause VC stream."""
+    try:
+        from bot.helper.vc_player import pause_vc_stream
+        parts = query.data.split("|")
+        vc_chat_id = int(parts[1])
+        
+        success, msg = await pause_vc_stream(vc_chat_id)
+        if success:
+            await query.answer("⏸ Paused")
+            await _update_player_display(query, vc_chat_id, "Paused")
+        else:
+            await query.answer(f"❌ {msg}", show_alert=True)
+    except Exception as e:
+        await query.answer(f"❌ {str(e)}", show_alert=True)
+
+
+@StreamBot.on_callback_query(filters.regex(r'^bvr\|'))
+async def browse_vc_resume_callback(bot: Client, query: CallbackQuery):
+    """Resume VC stream."""
+    try:
+        from bot.helper.vc_player import resume_vc_stream
+        parts = query.data.split("|")
+        vc_chat_id = int(parts[1])
+        
+        success, msg = await resume_vc_stream(vc_chat_id)
+        if success:
+            await query.answer("▶️ Resumed")
+            await _update_player_display(query, vc_chat_id, "Playing")
+        else:
+            await query.answer(f"❌ {msg}", show_alert=True)
+    except Exception as e:
+        await query.answer(f"❌ {str(e)}", show_alert=True)
+
+
+@StreamBot.on_callback_query(filters.regex(r'^bvk\|'))
+async def browse_vc_seek_callback(bot: Client, query: CallbackQuery):
+    """Seek VC stream ±20 seconds."""
+    try:
+        from bot.helper.vc_player import seek_vc_stream
+        parts = query.data.split("|")
+        vc_chat_id = int(parts[1])
+        offset = int(parts[2])
+        
+        await query.answer(f"⏩ Seeking {'+' if offset > 0 else ''}{offset}s...")
+        success, msg = await seek_vc_stream(vc_chat_id, offset)
+        if success:
+            await _update_player_display(query, vc_chat_id, "Playing")
+        else:
+            await query.answer(f"❌ {msg}", show_alert=True)
+    except Exception as e:
+        await query.answer(f"❌ {str(e)}", show_alert=True)
+
+
+@StreamBot.on_callback_query(filters.regex(r'^bvu\|'))
+async def browse_vc_refresh_callback(bot: Client, query: CallbackQuery):
+    """Refresh the player display with current position."""
+    try:
+        from bot.helper.vc_player import get_stream_info
+        parts = query.data.split("|")
+        vc_chat_id = int(parts[1])
+        
+        info = get_stream_info(vc_chat_id)
+        if info:
+            status = "Paused" if info.get("paused") else "Playing"
+            await _update_player_display(query, vc_chat_id, status)
+            await query.answer("🔄 Refreshed")
+        else:
+            await query.answer("No active stream", show_alert=True)
+    except Exception as e:
+        await query.answer(f"❌ {str(e)}", show_alert=True)
+
+
 @StreamBot.on_callback_query(filters.regex(r'^bvs\|'))
 async def browse_vc_stop_callback(bot: Client, query: CallbackQuery):
-    """User clicked 'Stop VC' - stop current stream."""
+    """Stop VC stream."""
     try:
         from bot.helper.vc_player import stop_vc_stream
-        
         parts = query.data.split("|")
         vc_chat_id = int(parts[1])
         
         success, message = await stop_vc_stream(vc_chat_id)
-        
         if success:
             await query.answer("⏹ Stream stopped")
             await query.message.edit_text(
@@ -783,3 +921,4 @@ async def browse_vc_stop_callback(bot: Client, query: CallbackQuery):
     except Exception as e:
         LOGGER.error(f"VC stop error: {e}")
         await query.answer(f"❌ Error: {str(e)}", show_alert=True)
+
