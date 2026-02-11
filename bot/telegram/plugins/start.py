@@ -799,18 +799,40 @@ async def _build_vc_controls(vc_chat_id: int, is_paused: bool = False, current_p
     if not invite_link:
         invite_link = await get_vc_invite_link(vc_chat_id)
     
-    # Build clickable progress bar: 8 segments based on actual duration
-    SEGMENTS = 8
-    total = duration if duration > 0 else 7200  # fallback 2hr
-    seg_dur = total // SEGMENTS
-    progress_bar = []
+    # Build clickable progress bar: 32 segments (4 rows of 8)
+    SEGMENTS = 32
+    COLS = 8
+    total = duration if duration > 0 else 7200
+    seg_dur = max(1, total // SEGMENTS)
+    
+    progress_grid = []
+    current_row = []
+    
     for i in range(SEGMENTS):
         seg_start = i * seg_dur
-        is_filled = current_pos >= seg_start
-        symbol = "▓" if is_filled else "░"
-        progress_bar.append(
+        # Determine if this segment is "filled" (current pos is past this segment's start)
+        # Use a slightly different logic for fine-grained bars:
+        # If pos is within this segment, show a special marker (e.g. 🔘 or 🟢)
+        # If pos is past this segment, show filled (▓)
+        # If pos is before, show empty (░)
+        
+        if current_pos >= seg_start + seg_dur:
+            symbol = "▓"
+        elif current_pos >= seg_start:
+            symbol = "🔘"  # Current segment
+        else:
+            symbol = "░"
+            
+        current_row.append(
             InlineKeyboardButton(symbol, callback_data=f"bvj|{vc_chat_id}|{seg_start}")
         )
+        
+        if len(current_row) == COLS:
+            progress_grid.append(current_row)
+            current_row = []
+    
+    if current_row:
+        progress_grid.append(current_row) # Should not happen if SEGMENTS % COLS == 0
     
     buttons = [
         # Row 1: Seek controls
@@ -819,9 +841,9 @@ async def _build_vc_controls(vc_chat_id: int, is_paused: bool = False, current_p
             pause_btn,
             InlineKeyboardButton("⏩ +30s", callback_data=f"bvk|{vc_chat_id}|30"),
         ],
-        # Row 2: Clickable progress bar
-        progress_bar,
-        # Row 3: Stop, Join VC, Back
+        # Rows 2-5: Clickable progress grid (32 segments)
+        *progress_grid,
+        # Row 6: Stop, Join VC, Back
         [
             InlineKeyboardButton("⏹ Stop", callback_data=f"bvs|{vc_chat_id}"),
             InlineKeyboardButton("🔊 Join VC", url=invite_link),

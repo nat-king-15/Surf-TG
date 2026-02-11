@@ -249,7 +249,7 @@ async def _detect_duration(chat_id: int, url: str):
         LOGGER.warning(f"Duration detection failed: {e}")
 
 
-def build_progress_bar(current_seconds: int, total_duration: int = 0, total_width: int = 15) -> str:
+def build_progress_bar(current_seconds: int, total_duration: int = 0, total_width: int = 25) -> str:
     """Build a text progress bar based on actual duration."""
     if total_duration <= 0:
         total_duration = 7200
