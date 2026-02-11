@@ -3,13 +3,13 @@
 # ----------------------------------------------------------------------
 FROM python:3.12-alpine AS builder
 
-# Install build dependencies (for compiling C extensions like tgcrypto) and 'bash'.
-# NOTE: We DO NOT install 'git' here.
+# Install build dependencies (for compiling C extensions like tgcrypto, ntgcalls) and 'bash'.
 RUN apk add --no-cache \
         bash \
         build-base \
         libffi-dev \
-        openssl-dev
+        openssl-dev \
+        cmake
 
 # Set the working directory
 WORKDIR /app
@@ -37,10 +37,12 @@ WORKDIR /app
 # Install necessary runtime system dependencies:
 # 1. 'bash' for your CMD ["bash", "surf-tg.sh"].
 # 2. 'git' because your deployed application/script needs it at runtime.
-RUN apk add --no-cache bash git
+# 3. 'ffmpeg' for pytgcalls VC streaming.
+RUN apk add --no-cache bash git ffmpeg
 
 # Copy the installed Python dependencies from the 'builder' stage
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy the application source code
 COPY --from=builder /app /app
