@@ -298,7 +298,7 @@ class Database:
     async def get_bot_items(self, parent_id="root", channel_id=None, page=1, per_page=8):
         """
         Get folders + files for inline keyboard, folders first, with correct pagination.
-        Returns (folders_list, files_list, has_more, total_folders, total_files).
+        Returns (folders_list, files_list, has_more, total_folders, total_files, video_count, pdf_count).
         """
         folder_query = {"parent_folder": parent_id, "type": "folder"}
         file_query = {"parent_folder": parent_id, "type": "file"}
@@ -309,6 +309,12 @@ class Database:
         total_folders = self.collection.count_documents(folder_query)
         total_files = self.collection.count_documents(file_query)
         total_items = total_folders + total_files
+
+        # Count videos and PDFs separately
+        video_query = {**file_query, "file_type": {"$regex": "video", "$options": "i"}}
+        pdf_query = {**file_query, "file_type": {"$regex": "pdf", "$options": "i"}}
+        video_count = self.collection.count_documents(video_query)
+        pdf_count = self.collection.count_documents(pdf_query)
 
         offset = (int(page) - 1) * per_page
         folders = []
@@ -325,7 +331,7 @@ class Database:
             files = list(self.collection.find(file_query).sort('file_id', ASCENDING).skip(file_skip).limit(per_page))
 
         has_more = (offset + per_page) < total_items
-        return folders, files, has_more, total_folders, total_files
+        return folders, files, has_more, total_folders, total_files, video_count, pdf_count
 
     async def get_folder_with_parent(self, folder_id):
         """Get folder name + parent info in a single query."""

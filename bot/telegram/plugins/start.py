@@ -380,10 +380,10 @@ async def _build_folder_keyboard(folder_id, channel_id, page=1):
             db.get_bot_items(folder_id, channel_id, page, ITEMS_PER_PAGE),
             db.get_folder_with_parent(folder_id)
         )
-        folders, files, has_more, sub_count, file_count = items_result
+        folders, files, has_more, sub_count, file_count, video_count, pdf_count = items_result
         folder_name_str, parent_id, _ = folder_info
     else:
-        folders, files, has_more, sub_count, file_count = await db.get_bot_items(folder_id, channel_id, page, ITEMS_PER_PAGE)
+        folders, files, has_more, sub_count, file_count, video_count, pdf_count = await db.get_bot_items(folder_id, channel_id, page, ITEMS_PER_PAGE)
         folder_name_str = None
         parent_id = None
     
@@ -469,10 +469,26 @@ async def _build_folder_keyboard(folder_id, channel_id, page=1):
     else:
         header = f"📁 {folder_name_str}" if folder_name_str else "📁 Folder"
     
+    # Build file type breakdown line
+    type_parts = []
+    if sub_count > 0:
+        type_parts.append(f"📂 {sub_count} Folders")
+    if video_count > 0:
+        type_parts.append(f"🎬 {video_count} Videos")
+    if pdf_count > 0:
+        type_parts.append(f"📕 {pdf_count} PDFs")
+    other_count = file_count - video_count - pdf_count
+    if other_count > 0:
+        type_parts.append(f"📄 {other_count} Files")
+    if not type_parts:
+        type_parts.append("📄 0 Files")
+    
+    type_line = "  |  ".join(type_parts)
+    
     text = (
         f"{header}\n"
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"📂 {sub_count} Folders  |  📄 {file_count} Files\n"
+        f"{type_line}\n"
     )
     
     if not folders and not files:
