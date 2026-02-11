@@ -707,7 +707,7 @@ async def browse_send_file_callback(bot: Client, query: CallbackQuery):
 async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
     """User clicked 'Play in VC' - stream video in auth channel voice chat."""
     try:
-        from bot.helper.vc_player import start_vc_stream, format_time
+        from bot.helper.vc_player import start_vc_stream
         
         parts = query.data.split("|")
         # bvc|msg_id|chat_id|hash
@@ -719,13 +719,15 @@ async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
         clean_chat_id = str(chat_id).replace("-100", "")
         base_url = Telegram.BASE_URL.rstrip('/')
         
-        # Get file name from DB
+        # Get file info from DB
         fname = "stream"
+        folder_id = "root"
         file_doc = db.collection.find_one({"file_id": int(msg_id), "chat_id": chat_id, "type": "file"})
         if not file_doc:
             file_doc = db.collection.find_one({"file_id": int(msg_id), "chat_id": int(chat_id), "type": "file"})
         if file_doc:
             fname = file_doc.get('name', file_doc.get('title', 'stream'))
+            folder_id = file_doc.get('parent_folder', 'root')
         
         encoded_name = quote(fname, safe='')
         stream_url = f"{base_url}/{clean_chat_id}/{encoded_name}?id={msg_id}&hash={file_hash}"
@@ -735,33 +737,22 @@ async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
         # Use auth channel for VC
         vc_chat_id = int(Telegram.AUTH_CHANNEL[0]) if Telegram.AUTH_CHANNEL else int(chat_id)
         
-        success, message = await start_vc_stream(vc_chat_id, stream_url, fname)
+        success, message = await start_vc_stream(
+            vc_chat_id, stream_url, fname,
+            msg_id=msg_id, src_chat_id=chat_id,
+            folder_id=str(folder_id), file_hash=file_hash
+        )
         
         if success:
-            # Build VC join link
-            vc_clean = str(vc_chat_id).replace("-100", "")
-            vc_link = f"https://t.me/c/{vc_clean}?voicechat"
-            
             display_name = fname[:30] + "…" if len(fname) > 30 else fname
-            controls = InlineKeyboardMarkup([
-                [
-                    InlineKeyboardButton("⏪ -20s", callback_data=f"bvk|{vc_chat_id}|-20"),
-                    InlineKeyboardButton("⏸ Pause", callback_data=f"bvp|{vc_chat_id}"),
-                    InlineKeyboardButton("⏩ +20s", callback_data=f"bvk|{vc_chat_id}|20"),
-                ],
-                [
-                    InlineKeyboardButton("⏹ Stop", callback_data=f"bvs|{vc_chat_id}"),
-                    InlineKeyboardButton("🔊 Join VC", url=vc_link),
-                ],
-                [InlineKeyboardButton("🔄 Refresh", callback_data=f"bvu|{vc_chat_id}")],
-            ])
+            controls = _build_vc_controls(vc_chat_id, False)
             await query.message.edit_text(
                 f"🔊 **Now Playing in VC**\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
                 f"🎬 {display_name}\n"
                 f"⏱ Position: 0:00\n"
                 f"▶️ Status: Playing\n\n"
-                f"🎧 Click **Join VC** to listen!",
+                f"🎧 Join the voice chat to listen!",
                 reply_markup=controls,
                 parse_mode=ParseMode.MARKDOWN
             )
@@ -774,9 +765,6 @@ async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
 
 def _build_vc_controls(vc_chat_id: int, is_paused: bool = False):
     """Build inline keyboard with VC player controls."""
-    vc_clean = str(vc_chat_id).replace("-100", "")
-    vc_link = f"https://t.me/c/{vc_clean}?voicechat"
-    
     pause_btn = InlineKeyboardButton(
         "▶️ Resume" if is_paused else "⏸ Pause",
         callback_data=f"{'bvr' if is_paused else 'bvp'}|{vc_chat_id}"
@@ -784,15 +772,14 @@ def _build_vc_controls(vc_chat_id: int, is_paused: bool = False):
     
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("⏪ -20s", callback_data=f"bvk|{vc_chat_id}|-20"),
+            InlineKeyboardButton("⏪ -30s", callback_data=f"bvk|{vc_chat_id}|-30"),
             pause_btn,
-            InlineKeyboardButton("⏩ +20s", callback_data=f"bvk|{vc_chat_id}|20"),
+            InlineKeyboardButton("⏩ +30s", callback_data=f"bvk|{vc_chat_id}|30"),
         ],
         [
             InlineKeyboardButton("⏹ Stop", callback_data=f"bvs|{vc_chat_id}"),
-            InlineKeyboardButton("🔊 Join VC", url=vc_link),
+            InlineKeyboardButton("🔄 Refresh", callback_data=f"bvu|{vc_chat_id}"),
         ],
-        [InlineKeyboardButton("🔄 Refresh", callback_data=f"bvu|{vc_chat_id}")],
     ])
 
 
@@ -818,7 +805,7 @@ async def _update_player_display(query, vc_chat_id: int, status_text: str = "Pla
             f"🎬 {display_name}\n"
             f"⏱ Position: {format_time(pos)}\n"
             f"{status_emoji} Status: {status_text}\n\n"
-            f"🎧 Click **Join VC** to listen!",
+            f"🎧 Join the voice chat to listen!",
             reply_markup=controls,
             parse_mode=ParseMode.MARKDOWN
         )
@@ -864,7 +851,7 @@ async def browse_vc_resume_callback(bot: Client, query: CallbackQuery):
 
 @StreamBot.on_callback_query(filters.regex(r'^bvk\|'))
 async def browse_vc_seek_callback(bot: Client, query: CallbackQuery):
-    """Seek VC stream ±20 seconds."""
+    """Seek VC stream ±30 seconds."""
     try:
         from bot.helper.vc_player import seek_vc_stream
         parts = query.data.split("|")
@@ -902,22 +889,29 @@ async def browse_vc_refresh_callback(bot: Client, query: CallbackQuery):
 
 @StreamBot.on_callback_query(filters.regex(r'^bvs\|'))
 async def browse_vc_stop_callback(bot: Client, query: CallbackQuery):
-    """Stop VC stream."""
+    """Stop VC stream and navigate back to file action menu."""
     try:
         from bot.helper.vc_player import stop_vc_stream
         parts = query.data.split("|")
         vc_chat_id = int(parts[1])
         
-        success, message = await stop_vc_stream(vc_chat_id)
-        if success:
-            await query.answer("⏹ Stream stopped")
+        success, message, stream_info = await stop_vc_stream(vc_chat_id)
+        await query.answer("⏹ Stream stopped")
+        
+        # Navigate back to file action menu
+        if stream_info and stream_info.get("msg_id") and stream_info.get("src_chat_id"):
+            back_msg_id = stream_info["msg_id"]
+            back_chat_id = stream_info["src_chat_id"]
+            back_folder = stream_info.get("folder_id", "root")
+            back_hash = stream_info.get("file_hash", "")
+            query.data = f"bfi|{back_msg_id}|{back_chat_id}|{back_folder}"
+            await browse_file_callback(bot, query)
+        else:
             await query.message.edit_text(
                 "⏹ **VC Stream Stopped**\n\n"
                 "Use /browse to start browsing again.",
                 parse_mode=ParseMode.MARKDOWN
             )
-        else:
-            await query.answer(f"❌ {message}", show_alert=True)
     except Exception as e:
         LOGGER.error(f"VC stop error: {e}")
         await query.answer(f"❌ Error: {str(e)}", show_alert=True)
