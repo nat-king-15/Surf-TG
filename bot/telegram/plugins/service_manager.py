@@ -19,6 +19,10 @@ async def get_auth_channels():
 async def clean_service_toggle(bot: Client, message: Message):
     """Toggle auto-deletion of service messages."""
     # Check if user is admin/owner (Sudo or Owner)
+    if not message.from_user:
+        await message.reply("❌ Error: Unable to identify user. If you are an **Anonymous Admin**, please switch to your user profile to use this command.")
+        return
+        
     user_id = message.from_user.id
     if user_id != Telegram.OWNER_ID and user_id not in Telegram.SUDO_USERS:
         return
