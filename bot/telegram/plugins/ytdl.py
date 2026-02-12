@@ -4,7 +4,7 @@ import asyncio
 import logging
 import tempfile
 import yt_dlp
-import requests
+import yt_dlp
 import aiofiles
 from pyrogram import Client, filters
 from pyrogram.types import Message
