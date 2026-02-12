@@ -11,11 +11,26 @@
     <title>Natking-TG: <!-- Filename --> </title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/css/plyr.css">
     <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script disable-devtool-auto src='https://cdn.jsdelivr.net/npm/disable-devtool'></script>
     <style>
+        :root {
+            --primary-color: #00d4ff;
+            --background-dark: #0f0f1a;
+            --background-light: #1a1a2e;
+            --background-gradient: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            --text-main: #e0e0e0;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-blur: blur(12px);
+            --radius-main: 16px;
+            --radius-small: 8px;
+        }
+
         *,
         *::before,
         *::after {
@@ -29,8 +44,8 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
-            color: #e0e0e0;
+            background: var(--background-gradient);
+            color: var(--text-main);
             -webkit-tap-highlight-color: transparent;
             overflow-x: hidden;
         }
@@ -40,49 +55,210 @@
             color: inherit;
         }
 
+        /* ── NAVBAR ───────────────────────────────────────────────────────────── */
         .navbar {
             background: rgba(15, 15, 26, 0.85);
             backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-            padding: 10px 16px;
+            border-bottom: 1px solid var(--glass-border);
+            padding: 12px 20px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
-        .navbar img {
-            height: 36px;
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+
+        .navbar-brand i {
+            color: var(--primary-color);
+            font-size: 1.4rem;
         }
 
         .navbar .btn-logout {
             background: rgba(255, 255, 255, 0.08);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #e0e0e0;
-            border-radius: 10px;
-            padding: 6px 14px;
-            font-size: 0.8rem;
+            color: var(--text-main);
+            border-radius: 12px;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            font-weight: 500;
             font-family: 'Inter', sans-serif;
             cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .navbar .btn-logout:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* ── PLAYER WRAPPER ───────────────────────────────────────────────────── */
+        .video-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 20px;
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
         }
 
         .video-wrapper {
             width: 100%;
-            max-width: 900px;
-            margin: 20px auto;
-            padding: 0 16px;
+            border-radius: var(--radius-main);
+            overflow: hidden;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.6);
+            background: #000;
             position: relative;
+            margin-bottom: 24px;
         }
 
         .plyr {
-            border-radius: 16px;
-            overflow: hidden;
+            border-radius: var(--radius-main);
+            --plyr-color-main: var(--primary-color);
         }
 
-        .plyr--video {
-            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+        .plyr--fullscreen-active {
+            border-radius: 0;
         }
 
-        /* ── Seek indicator (injected inside .plyr) ── */
+        /* ── INFO CARD ────────────────────────────────────────────────────────── */
+        .info-card {
+            width: 100%;
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-main);
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 8px;
+        }
+
+        .info-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fff;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .info-badge {
+            background: rgba(0, 212, 255, 0.15);
+            color: var(--primary-color);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .info-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .info-meta span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* ── ACTION BUTTONS ───────────────────────────────────────────────────── */
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            width: 100%;
+            margin-bottom: 30px;
+        }
+
+        .action-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+            user-select: none;
+        }
+
+        .action-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .action-btn:active {
+            transform: translateY(0);
+        }
+
+        .action-btn i {
+            font-size: 1.1rem;
+            color: var(--primary-color);
+        }
+
+        .action-btn.primary {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: rgba(0, 212, 255, 0.3);
+            color: #fff;
+        }
+
+        .action-btn.primary:hover {
+            background: rgba(0, 212, 255, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.2);
+        }
+
+        /* ── FOOTER ───────────────────────────────────────────────────────────── */
+        .footer {
+            margin-top: auto;
+            text-align: center;
+            padding: 24px;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.3);
+            border-top: 1px solid var(--glass-border);
+            width: 100%;
+            background: rgba(15, 15, 26, 0.5);
+        }
+
+        .footer a {
+            color: rgba(255, 255, 255, 0.5);
+            transition: color 0.2s;
+        }
+
+        .footer a:hover {
+            color: var(--primary-color);
+        }
+
+        /* ── GESTURE OVERLAYS ─────────────────────────────────────────────────── */
+        /* Seek Indicators */
         .seek-indicator {
             position: absolute;
             display: flex;
@@ -95,31 +271,30 @@
             z-index: 50;
             top: 50%;
             margin-top: -30px;
-        }
-
-        .seek-indicator.left {
-            left: 15%;
-        }
-
-        .seek-indicator.right {
-            right: 15%;
-        }
-
-        .seek-indicator.show {
-            animation: seekPop 0.7s ease-out forwards;
-        }
-
-        .seek-indicator .seek-icon {
-            font-size: 2.2rem;
-            color: #fff;
             text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
         }
 
+        .seek-indicator.left {
+            left: 20%;
+        }
+
+        .seek-indicator.right {
+            right: 20%;
+        }
+
+        .seek-indicator.show {
+            animation: seekPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .seek-indicator .seek-icon {
+            font-size: 2.5rem;
+            color: #fff;
+        }
+
         .seek-indicator .seek-text {
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             font-weight: 700;
             color: #fff;
-            text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
         }
 
         @keyframes seekPop {
@@ -128,22 +303,22 @@
                 transform: scale(0.5);
             }
 
-            25% {
+            40% {
                 opacity: 1;
-                transform: scale(1.15);
+                transform: scale(1.1);
             }
 
             100% {
                 opacity: 0;
-                transform: scale(1) translateY(-12px);
+                transform: scale(1) translateY(-10px);
             }
         }
 
-        /* Seek ripple flash */
+        /* Seek Ripple Flash */
         .seek-flash {
             position: absolute;
             top: 0;
-            width: 50%;
+            width: 40%;
             height: 100%;
             opacity: 0;
             pointer-events: none;
@@ -152,18 +327,20 @@
 
         .seek-flash.left {
             left: 0;
-            border-radius: 16px 0 0 16px;
-            background: radial-gradient(circle at 30% 50%, rgba(255, 255, 255, 0.12), transparent 70%);
+            border-top-left-radius: var(--radius-main);
+            border-bottom-left-radius: var(--radius-main);
+            background: radial-gradient(circle at 0% 50%, rgba(255, 255, 255, 0.15), transparent 70%);
         }
 
         .seek-flash.right {
             right: 0;
-            border-radius: 0 16px 16px 0;
-            background: radial-gradient(circle at 70% 50%, rgba(255, 255, 255, 0.12), transparent 70%);
+            border-top-right-radius: var(--radius-main);
+            border-bottom-right-radius: var(--radius-main);
+            background: radial-gradient(circle at 100% 50%, rgba(255, 255, 255, 0.15), transparent 70%);
         }
 
         .seek-flash.animate {
-            animation: flashFade 0.4s ease-out;
+            animation: flashFade 0.5s ease-out;
         }
 
         @keyframes flashFade {
@@ -176,18 +353,18 @@
             }
         }
 
-        /* Speed indicator badge */
-        .speed-indicator {
+        /* Volume/Speed Indicators */
+        .status-badge {
             position: absolute;
-            top: 16px;
+            top: 20px;
             left: 50%;
             transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(10px);
             color: #fff;
-            padding: 6px 18px;
-            border-radius: 20px;
-            font-size: 0.8rem;
+            padding: 8px 20px;
+            border-radius: 30px;
+            font-size: 0.85rem;
             font-weight: 600;
             opacity: 0;
             transition: opacity 0.2s;
@@ -195,222 +372,78 @@
             pointer-events: none;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
 
-        .speed-indicator.show {
+        .status-badge.show {
             opacity: 1;
         }
 
-        /* Volume bar (right side of video) */
+        /* Volume Bar */
         .vol-gesture-bar {
             position: absolute;
             z-index: 50;
-            width: 4px;
-            height: 40%;
+            width: 6px;
+            height: 140px;
             border-radius: 4px;
-            background: rgba(255, 255, 255, 0.15);
-            top: 30%;
-            right: 16px;
+            background: rgba(255, 255, 255, 0.2);
+            top: 50%;
+            transform: translateY(-50%);
+            right: 20px;
             opacity: 0;
             transition: opacity 0.25s;
             pointer-events: none;
+            overflow: hidden;
         }
 
         .vol-gesture-bar .fill {
             position: absolute;
             bottom: 0;
             width: 100%;
-            border-radius: 4px;
-            background: #00d4ff;
-            transition: height 0.08s;
-        }
-
-        .vol-gesture-bar .g-icon {
-            position: absolute;
-            top: -28px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 1rem;
-            color: #fff;
+            background: var(--primary-color);
+            transition: height 0.05s linear;
         }
 
         .vol-gesture-bar.show {
             opacity: 1;
         }
 
-        /* File info card */
-        .file-info {
-            max-width: 900px;
-            margin: 0 auto 20px;
-            padding: 0 16px;
-        }
-
-        .info-card {
-            background: rgba(255, 255, 255, 0.04);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 14px;
-            padding: 16px 20px;
-        }
-
-        .info-card h6 {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #e0e0e0;
-            margin-bottom: 4px;
-            word-break: break-word;
-        }
-
-        .info-card p {
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.4);
-            margin: 0;
-        }
-
-        /* Action buttons */
-        .actions {
-            max-width: 900px;
-            margin: 0 auto 24px;
-            padding: 0 16px;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-        }
-
-        .action-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            padding: 12px 8px;
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 0.8rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-family: 'Inter', sans-serif;
-            text-align: center;
-        }
-
-        .action-btn:hover,
-        .action-btn:active {
-            background: rgba(0, 212, 255, 0.1);
-            border-color: rgba(0, 212, 255, 0.2);
-            color: #00d4ff;
-        }
-
-        .action-btn i {
-            font-size: 1rem;
-        }
-
-        .footer {
-            margin-top: auto;
-            text-align: center;
-            padding: 16px;
-            font-size: 0.7rem;
-            color: rgba(255, 255, 255, 0.2);
-        }
-
-        .footer a {
-            color: rgba(255, 255, 255, 0.3);
-        }
-
-        ::-webkit-scrollbar {
-            width: 5px;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 10px;
-        }
-
-        @media (max-width: 480px) {
-            .actions {
-                grid-template-columns: repeat(2, 1fr);
+        /* ── RESPONSIVE ───────────────────────────────────────────────────────── */
+        @media (max-width: 600px) {
+            .video-container {
+                padding: 12px;
             }
 
-            .video-wrapper {
-                padding: 0 8px;
-                margin: 12px auto;
+            .info-card {
+                padding: 16px;
             }
 
-            .plyr {
-                border-radius: 10px;
+            .navbar {
+                padding: 10px 16px;
             }
 
-            .seek-flash.left {
-                border-radius: 10px 0 0 10px;
+            .navbar-brand span {
+                display: none;
             }
 
-            .seek-flash.right {
-                border-radius: 0 10px 10px 0;
+            .actions-grid {
+                grid-template-columns: 1fr 1fr;
             }
-        }
 
-        /* Fix for fullscreen */
-        .plyr--fullscreen-active .plyr {
-            border-radius: 0;
-        }
-
-        .plyr--fullscreen-active .seek-flash.left,
-        .plyr--fullscreen-active .seek-flash.right {
-            border-radius: 0;
-        }
-
-        /* Mobile Layout: Responsive Single Row */
-        @media (max-width: 480px) {
+            /* Mobile Plyr controls tweaks */
             .plyr__controls {
-                flex-wrap: nowrap !important;
-                overflow-x: auto !important;
-                overflow-y: hidden !important;
-                justify-content: flex-start !important;
-                padding: 10px 5px !important;
                 gap: 5px !important;
+                padding: 10px !important;
             }
 
-            /* Make progress bar flexible but visible */
-            .plyr__progress__container {
-                flex: 1 1 auto !important;
-                min-width: 80px !important;
-                order: 3 !important;
-                /* Play(1), Time(2), Progress(3) ... */
-            }
-
-            /* Ensure Play and Time are first */
-            .plyr__controls__item[data-plyr="play"] {
-                order: 1 !important;
-            }
-
-            .plyr__time {
-                order: 2 !important;
-                font-size: 12px !important;
-                padding: 0 5px !important;
-            }
-
-            /* Volume and others after progress */
             .plyr__volume {
-                order: 4 !important;
-                min-width: auto !important;
-                width: auto !important;
+                display: none !important;
             }
 
-            /* Hide volume slider on mobile to save space, just keep mute button if needed, 
-               or let Plyr handle it (Plyr usually hides volume slider on mobile). 
-            */
-
-            /* Settings/Fullscreen at the end */
-            .plyr__menu,
-            .plyr__controls__item[data-plyr="fullscreen"] {
-                order: 10 !important;
-            }
-
-            /* General button sizing */
-            .plyr__controls__item.plyr__control {
-                padding: 5px !important;
+            /* Hide volume slider on mobile */
+            .plyr__time {
+                font-size: 12px !important;
             }
         }
     </style>
@@ -418,416 +451,307 @@
 
 <body>
     <nav class="navbar">
-        <a href="/"
-            style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.2rem; color: #fff;">
-            <i class="bi bi-send-fill" style="color: #00d4ff;"></i>
+        <a href="/" class="navbar-brand">
+            <i class="bi bi-play-circle-fill"></i>
             <span>NATKING-TG</span>
         </a>
         <form id="signoutForm" action="/logout" method="post">
-            <button type="submit" class="btn-logout"><i class="bi bi-box-arrow-left"></i> Logout</button>
+            <button type="submit" class="btn-logout">
+                <i class="bi bi-box-arrow-left"></i> Logout
+            </button>
         </form>
     </nav>
 
-    <div class="video-wrapper" id="videoWrapper">
-        <video controls crossorigin playsinline data-poster="<!-- Poster -->" id="player">
-            <source src="#" type="video/mp4" />
-        </video>
-    </div>
+    <div class="video-container" id="videoContainer">
 
-    <div class="file-info">
-        <div class="info-card">
-            <h6><!-- Filename --></h6>
-            <p>Size: <!-- Size --></p>
+        <!-- Video Player -->
+        <div class="video-wrapper">
+            <video id="player" playsinline controls data-poster="<!-- Poster -->" crossorigin>
+                <source src="#" type="video/mp4" />
+            </video>
         </div>
-    </div>
 
-    <div class="actions">
-        <div class="action-btn" onclick="mx_player()"><i class="bi bi-play-circle"></i> MX Player</div>
-        <div class="action-btn" onclick="vlc_player()"><i class="bi bi-play-btn"></i> VLC</div>
-        <div class="action-btn" onclick="km_player()"><i class="bi bi-film"></i> KM Player</div>
-        <div class="action-btn" onclick="get_file()"><i class="bi bi-telegram"></i> Get File</div>
-        <div class="action-btn" onclick="copyUrl()"><i class="bi bi-clipboard"></i> Copy URL</div>
-        <div class="action-btn" onclick="download()"><i class="bi bi-download"></i> Download</div>
+        <!-- File Info -->
+        <div class="info-card">
+            <div class="info-header">
+                <div class="info-title"><!-- Filename --></div>
+                <div class="info-badge">Video</div>
+            </div>
+            <div class="info-meta">
+                <span><i class="bi bi-hdd-fill"></i> <!-- Size --></span>
+                <span><i class="bi bi-clock-history"></i> Just now</span>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="actions-grid">
+            <div class="action-btn primary" onclick="download()">
+                <i class="bi bi-download"></i> Download
+            </div>
+            <div class="action-btn" onclick="copyUrl()">
+                <i class="bi bi-link-45deg"></i> Copy Link
+            </div>
+            <div class="action-btn" onclick="get_file()">
+                <i class="bi bi-telegram"></i> Get File
+            </div>
+            <div class="action-btn" onclick="mx_player()">
+                <i class="bi bi-play-circle"></i> MX Player
+            </div>
+            <div class="action-btn" onclick="vlc_player()">
+                <i class="bi bi-cone-striped"></i> VLC
+            </div>
+            <div class="action-btn" onclick="km_player()">
+                <i class="bi bi-film"></i> KM Player
+            </div>
+        </div>
+
     </div>
 
     <div class="footer">
-        Made with ❤️ by <a href="https://github.com/weebzone" target="_blank">Karan Adhikari</a><br>
-        &copy; 2026 <a href="https://github.com/weebzone/Surf-TG" target="_blank">Natking-TG</a>
+        <p>Made with ❤️ by <a href="https://github.com/weebzone" target="_blank">Karan Adhikari</a></p>
+        <p>&copy; 2026 <a href="https://github.com/weebzone/Surf-TG" target="_blank">Natking-TG</a></p>
     </div>
-</body>
-<script>
-    // ── URL setup ───────────────────────────────────────────────────────────
-    const videolink = window.location.href;
-    const baseUrl = '<!-- BaseUrl -->';
-    const chatId = '<!-- ChatId -->';
-    const msgId = '<!-- MsgId -->';
-    const hash = '<!-- Hash -->';
-    const encodedName = encodeURIComponent('<!-- Filename -->');
-    const downloadlink = `${baseUrl}/${chatId}/${encodedName}?id=${msgId}&hash=${hash}`;
 
-    // ── Plyr init (clickToPlay OFF — we handle it ourselves) ────────────────
-    const player = new Plyr('#player', {
-        controls: ['play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen', 'pip', 'airplay', 'settings', 'play-large', 'duration'],
-        settings: ['speed'],
-        speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
-        clickToPlay: false,
-        hideControls: true,
-        keyboard: { focused: true, global: true },
-        loop: { active: false },
-        tooltips: { controls: true, seek: true },
-        invertTime: false,
-    });
+    <!-- Scripts -->
+    <script>
+        // ── CONFIGURATION & UTILS ──────────────────────────────────────────────
+        const videolink = window.location.href;
+        const baseUrl = '<!-- BaseUrl -->';
+        const chatId = '<!-- ChatId -->';
+        const msgId = '<!-- MsgId -->';
+        const hash = '<!-- Hash -->';
+        const encodedName = encodeURIComponent('<!-- Filename -->');
+        const downloadlink = `${baseUrl}/${chatId}/${encodedName}?id=${msgId}&hash=${hash}`;
 
-    // ── External players ────────────────────────────────────────────────────
-    function mx_player() { window.location.href = `intent:${downloadlink}#Intent;package=com.mxtech.videoplayer.ad;end`; }
-    function vlc_player() { window.location.href = `vlc://${downloadlink}`; }
-    function km_player() { window.location.href = `intent:${downloadlink}#Intent;package=com.kmplayer;end`; }
-    function download() { window.location.href = downloadlink; }
-    function get_file() {
-        const regex = /(\d+)\?id=(\d+)&/;
-        const match = videolink.match(regex);
-        if (match) {
-            const chatId = "-100" + match[1];
-            const messageId = match[2];
-            window.location.href = `https://t.me/<!-- Username -->?start=file_${messageId}${chatId}`;
+        // ── PLAYER INIT ────────────────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            const video = document.getElementById('player');
+            const source = downloadlink; // Use direct link for now, HLS logic below if needed
+
+            // Check for HLS support
+            if (Hls.isSupported() && source.includes('.m3u8')) {
+                const hls = new Hls();
+                hls.loadSource(source);
+                hls.attachMedia(video);
+            } else {
+                video.src = source;
+            }
+
+            const player = new Plyr(video, {
+                controls: [
+                    'play-large', 'play', 'rewind', 'fast-forward',
+                    'progress', 'current-time', 'duration',
+                    'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'
+                ],
+                settings: ['caption', 'quality', 'speed'],
+                speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5] },
+                keyboard: { focused: true, global: true },
+                tooltips: { controls: true, seek: true },
+                i18n: { restart: 'Restart', rewind: 'Rewind {seektime}s', play: 'Play', pause: 'Pause', fastForward: 'Forward {seektime}s', seek: 'Seek', seekLabel: '{currentTime} of {duration}', played: 'Played', buffered: 'Buffered', currentTime: 'Current time', duration: 'Duration', volume: 'Volume', mute: 'Mute', unmute: 'Unmute', enableCaptions: 'Enable captions', disableCaptions: 'Disable captions', download: 'Download', enterFullscreen: 'Enter fullscreen', exitFullscreen: 'Exit fullscreen', frameTitle: 'Player for {title}', captions: 'Captions', settings: 'Settings', pip: 'PIP', menuBack: 'Go back', speed: 'Speed', normal: 'Normal', quality: 'Quality', loop: 'Loop', start: 'Start', end: 'End', all: 'All', reset: 'Reset', disabled: 'Disabled', enabled: 'Enabled', advertisement: 'Ad', qualityBadge: { 2160: '4K', 1440: 'HD', 1080: 'HD', 720: 'HD', 576: 'SD', 480: 'SD' } },
+            });
+
+            // Make player global for gesture handlers
+            window.player = player;
+
+            // Inject custom gesture elements
+            injectGestureElements();
+        });
+
+        // ── GESTURE LOGIC ──────────────────────────────────────────────────────
+        function injectGestureElements() {
+            const plyrContainer = document.querySelector('.plyr');
+            if (!plyrContainer) return;
+
+            plyrContainer.insertAdjacentHTML('beforeend', `
+                <div class="seek-flash left" id="flashLeft"></div>
+                <div class="seek-flash right" id="flashRight"></div>
+                
+                <div class="seek-indicator left" id="seekLeft">
+                    <span class="seek-icon"><i class="bi bi-chevron-double-left"></i></span>
+                    <span class="seek-text">-10s</span>
+                </div>
+                <div class="seek-indicator right" id="seekRight">
+                    <span class="seek-icon"><i class="bi bi-chevron-double-right"></i></span>
+                    <span class="seek-text">+10s</span>
+                </div>
+                
+                <div class="status-badge" id="statusBadge">
+                    <i class="bi bi-speedometer2"></i><span>2x Speed</span>
+                </div>
+                
+                <div class="vol-gesture-bar" id="volumeBar">
+                    <div class="fill" id="volumeFill"></div>
+                </div>
+            `);
+
+            setupGestures(plyrContainer);
         }
-    }
-    function copyUrl() {
-        navigator.clipboard.writeText(downloadlink)
-            .then(() => alert('URL copied to clipboard!'))
-            .catch((error) => console.error('Failed to copy URL: ', error));
-    }
-    function updateVideoSource() { document.getElementById('player').src = downloadlink; }
-    window.onload = function () { updateVideoSource(); };
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // ── INJECT GESTURE ELEMENTS INSIDE PLYR (so they work in fullscreen) ──
-    // ═══════════════════════════════════════════════════════════════════════
+        function setupGestures(element) {
+            let lastTap = 0;
+            let longPressTimer;
+            let startX, startY;
+            let isSwiping = false;
+            let initialVolume = 1;
 
-    let plyrEl = null;
+            // Double Tap to Seek
+            element.addEventListener('touchend', (e) => {
+                const currentTime = new Date().getTime();
+                const tapLength = currentTime - lastTap;
+                if (tapLength < 300 && tapLength > 0 && !isSwiping) {
+                    // Double Tap Detected
+                    e.preventDefault();
+                    handleDoubleTap(e);
+                }
+                lastTap = currentTime;
 
-    function injectGestureElements() {
-        plyrEl = document.querySelector('.plyr');
-        if (!plyrEl) return;
+                // Clear long press
+                clearTimeout(longPressTimer);
+                resetSpeed();
+                isSwiping = false;
+                hideVolumeBar();
+            });
 
-        plyrEl.insertAdjacentHTML('beforeend', `
-            <div class="seek-flash left" id="flashLeft"></div>
-            <div class="seek-flash right" id="flashRight"></div>
-            <div class="seek-indicator left" id="seekLeft">
-                <span class="seek-icon"><i class="bi bi-skip-backward-fill"></i></span>
-                <span class="seek-text">20s</span>
-            </div>
-            <div class="seek-indicator right" id="seekRight">
-                <span class="seek-icon"><i class="bi bi-skip-forward-fill"></i></span>
-                <span class="seek-text">20s</span>
-            </div>
-            <div class="speed-indicator" id="speedIndicator">
-                <i class="bi bi-fast-forward-fill"></i><span>2x Speed</span>
-            </div>
-            <div class="vol-gesture-bar" id="volumeBar">
-                <span class="g-icon"><i class="bi bi-volume-up-fill"></i></span>
-                <div class="fill" id="volumeFill"></div>
-            </div>
-        `);
+            // Long Press for 2x Speed
+            element.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                startX = touch.clientX;
+                startY = touch.clientY;
+                initialVolume = window.player.volume;
 
-        setupGestures();
-    }
+                longPressTimer = setTimeout(() => {
+                    // Only trigger if not swiping
+                    if (!isSwiping) {
+                        window.player.speed = 2;
+                        showBadge('2x Speed', 'bi-fast-forward-fill');
+                        if (navigator.vibrate) navigator.vibrate(50);
+                    }
+                }, 600);
+            });
 
-    player.on('ready', injectGestureElements);
+            // Swipe for Volume/Brightness (Volume only for web)
+            element.addEventListener('touchmove', (e) => {
+                const touch = e.touches[0];
+                const diffX = startX - touch.clientX;
+                const diffY = startY - touch.clientY;
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // ── GESTURE HANDLER — attached directly to .plyr container ────────────
-    // ═══════════════════════════════════════════════════════════════════════
+                if (Math.abs(diffY) > 10 && Math.abs(diffY) > Math.abs(diffX)) {
+                    isSwiping = true;
+                    // Right side of screen for volume
+                    if (startX > window.innerWidth / 2) {
+                        e.preventDefault();
+                        const sensitivity = 0.005;
+                        let newVol = initialVolume + (diffY * sensitivity);
+                        newVol = Math.max(0, Math.min(1, newVol));
+                        window.player.volume = newVol;
+                        showVolumeBar(newVol);
+                        clearTimeout(longPressTimer); // Cancel long press on swipe
+                    }
+                }
+            });
 
-    const SEEK_SECONDS = 20;
+            // Mouse Double Click (Desktop)
+            element.addEventListener('dblclick', (e) => {
+                // Ignore if clicked on controls
+                if (e.target.closest('.plyr__controls')) return;
 
-    function getZone(clientX) {
-        if (!plyrEl) return 'center';
-        const rect = plyrEl.getBoundingClientRect();
-        const relX = (clientX - rect.left) / rect.width;
-        if (relX < 0.35) return 'left';
-        if (relX > 0.65) return 'right';
-        return 'center';
-    }
+                const rect = element.getBoundingClientRect();
+                const x = e.clientX - rect.left;
 
-    function isControlElement(target) {
-        return target.closest('.plyr__controls') ||
-            target.closest('.plyr__control') ||
-            target.closest('.plyr__menu') ||
-            target.closest('button');
-    }
+                if (x < rect.width * 0.3) seek(-10, 'left');
+                else if (x > rect.width * 0.7) seek(10, 'right');
+            });
+        }
 
-    function showSeekAnimation(side) {
-        const indicator = document.getElementById(side === 'left' ? 'seekLeft' : 'seekRight');
-        const flash = document.getElementById(side === 'left' ? 'flashLeft' : 'flashRight');
-        if (!indicator || !flash) return;
+        function handleDoubleTap(e) {
+            // Ignore if clicked on controls
+            if (e.target.closest('.plyr__controls')) return;
 
-        indicator.classList.remove('show');
-        flash.classList.remove('animate');
-        void indicator.offsetWidth;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const touch = e.changedTouches[0];
+            const x = touch.clientX - rect.left;
 
-        indicator.classList.add('show');
-        flash.classList.add('animate');
+            if (x < rect.width * 0.35) seek(-10, 'left');
+            else if (x > rect.width * 0.65) seek(10, 'right');
+            else window.player.togglePlay();
+        }
 
-        setTimeout(() => {
+        function seek(amount, side) {
+            if (window.player) {
+                window.player.currentTime += amount;
+                showSeekAnimation(side);
+                if (navigator.vibrate) navigator.vibrate(30);
+            }
+        }
+
+        function showSeekAnimation(side) {
+            const indicator = document.getElementById(side === 'left' ? 'seekLeft' : 'seekRight');
+            const flash = document.getElementById(side === 'left' ? 'flashLeft' : 'flashRight');
+
+            // Trigger reflow
             indicator.classList.remove('show');
             flash.classList.remove('animate');
-        }, 700);
-    }
+            void indicator.offsetWidth;
 
-    function doSeek(side) {
-        if (side === 'left') {
-            player.currentTime = Math.max(0, player.currentTime - SEEK_SECONDS);
-        } else {
-            player.currentTime = Math.min(player.duration || Infinity, player.currentTime + SEEK_SECONDS);
-        }
-        showSeekAnimation(side);
-        if (navigator.vibrate) navigator.vibrate(20);
-    }
-
-    function setupGestures() {
-        if (!plyrEl) return;
-
-        // ── Variables ──
-        let tapCount = 0;
-        let tapTimer = null;
-        let tapZone = null;
-        let longPressTimer = null;
-        let isLongPress = false;
-        let originalSpeed = 1;
-        let swipeStartY = null;
-        let swipeStartVolume = 0;
-        let isSwiping = false;
-        let swipeZone = null;
-        let touchStartTime = 0;
-
-        // ── TOUCH EVENTS (mobile) ──────────────────────────────────────────
-        plyrEl.addEventListener('touchstart', (e) => {
-            if (e.touches.length > 1) return;
-            if (isControlElement(e.target)) return;
-
-            const touch = e.touches[0];
-            const zone = getZone(touch.clientX);
-            touchStartTime = Date.now();
-
-            // Swipe tracking
-            swipeStartY = touch.clientY;
-            swipeStartVolume = player.volume;
-            swipeZone = zone;
-            isSwiping = false;
-
-            // Long press
-            longPressTimer = setTimeout(() => {
-                isLongPress = true;
-                originalSpeed = player.speed;
-                player.speed = 2;
-                const badge = document.getElementById('speedIndicator');
-                if (badge) badge.classList.add('show');
-                if (navigator.vibrate) navigator.vibrate(30);
-            }, 500);
-
-            // Double-tap counting
-            tapCount++;
-            tapZone = zone;
-
-            if (tapCount === 1) {
-                tapTimer = setTimeout(() => {
-                    // Single tap expired — only play/pause if center
-                    if (!isSwiping && !isLongPress && tapZone === 'center') {
-                        player.togglePlay();
-                    }
-                    tapCount = 0;
-                    tapZone = null;
-                }, 280);
-            }
-        }, { passive: false });
-
-        plyrEl.addEventListener('touchmove', (e) => {
-            if (isControlElement(e.target)) return;
-            clearTimeout(longPressTimer);
-
-            if (swipeStartY === null) return;
-            const touch = e.touches[0];
-            const deltaY = swipeStartY - touch.clientY;
-
-            if (Math.abs(deltaY) > 15) {
-                isSwiping = true;
-            }
-
-            if (isSwiping && swipeZone === 'right') {
-                e.preventDefault();
-                const sensitivity = plyrEl.offsetHeight * 0.5;
-                const volumeChange = deltaY / sensitivity;
-                const newVol = Math.max(0, Math.min(1, swipeStartVolume + volumeChange));
-                player.volume = newVol;
-                player.muted = false;
-
-                const volBar = document.getElementById('volumeBar');
-                const volFill = document.getElementById('volumeFill');
-                if (volBar && volFill) {
-                    volBar.classList.add('show');
-                    volFill.style.height = (newVol * 100) + '%';
-                    const icon = volBar.querySelector('.g-icon i');
-                    if (icon) {
-                        if (newVol === 0) icon.className = 'bi bi-volume-mute-fill';
-                        else if (newVol < 0.5) icon.className = 'bi bi-volume-down-fill';
-                        else icon.className = 'bi bi-volume-up-fill';
-                    }
-                }
-            }
-        }, { passive: false });
-
-        plyrEl.addEventListener('touchend', (e) => {
-            if (isControlElement(e.target)) return;
-
-            // End long press
-            clearTimeout(longPressTimer);
-            if (isLongPress) {
-                player.speed = originalSpeed;
-                const badge = document.getElementById('speedIndicator');
-                if (badge) badge.classList.remove('show');
-                isLongPress = false;
-                tapCount = 0;
-                clearTimeout(tapTimer);
-            }
-
-            // End swipe
-            if (isSwiping) {
-                setTimeout(() => {
-                    const volBar = document.getElementById('volumeBar');
-                    if (volBar) volBar.classList.remove('show');
-                }, 600);
-                isSwiping = false;
-                tapCount = 0;
-                clearTimeout(tapTimer);
-            }
-
-            swipeStartY = null;
-
-            // Handle double-tap
-            if (tapCount >= 2) {
-                clearTimeout(tapTimer);
-                if (!isSwiping && !isLongPress && (tapZone === 'left' || tapZone === 'right')) {
-                    doSeek(tapZone);
-                } else if (tapZone === 'center') {
-                    player.togglePlay();
-                }
-                tapCount = 0;
-                tapZone = null;
-            }
-        }, { passive: true });
-
-        plyrEl.addEventListener('touchcancel', () => {
-            clearTimeout(longPressTimer);
-            clearTimeout(tapTimer);
-            if (isLongPress) {
-                player.speed = originalSpeed;
-                const badge = document.getElementById('speedIndicator');
-                if (badge) badge.classList.remove('show');
-            }
-            isLongPress = false;
-            isSwiping = false;
-            tapCount = 0;
-            swipeStartY = null;
-            const volBar = document.getElementById('volumeBar');
-            if (volBar) volBar.classList.remove('show');
-        });
-
-        // ── MOUSE EVENTS (desktop) ──────────────────────────────────────────
-        // Click on center = play/pause
-        plyrEl.addEventListener('click', (e) => {
-            if (isControlElement(e.target)) return;
-            const zone = getZone(e.clientX);
-            if (zone === 'center') {
-                player.togglePlay();
-            }
-        });
-
-        // ── BLOCK ALL dblclick on video area (capture phase = fires BEFORE Plyr) ──
-        // This completely prevents Plyr from toggling fullscreen on double-click/tap
-        plyrEl.addEventListener('dblclick', (e) => {
-            if (isControlElement(e.target)) return;
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            const zone = getZone(e.clientX);
-            if (zone === 'left' || zone === 'right') {
-                doSeek(zone);
-            }
-        }, true); // true = capture phase
-
-        // Also block on the video element directly
-        const videoEl = plyrEl.querySelector('video');
-        if (videoEl) {
-            videoEl.addEventListener('dblclick', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-            }, true);
+            indicator.classList.add('show');
+            flash.classList.add('animate');
         }
 
-        // Block on the plyr wrapper too
-        const plyrVideoWrap = plyrEl.querySelector('.plyr__video-wrapper');
-        if (plyrVideoWrap) {
-            plyrVideoWrap.addEventListener('dblclick', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-            }, true);
+        function showBadge(text, iconClass) {
+            const badge = document.getElementById('statusBadge');
+            badge.innerHTML = `<i class="bi ${iconClass}"></i><span>${text}</span>`;
+            badge.classList.add('show');
         }
-    }
 
-    // ── LANDSCAPE FULLSCREEN ────────────────────────────────────────────────
-    player.on('enterfullscreen', () => {
-        try {
-            if (screen.orientation && screen.orientation.lock) {
-                screen.orientation.lock('landscape').catch(() => { });
+        function resetSpeed() {
+            if (window.player && window.player.speed === 2) {
+                window.player.speed = 1;
+                document.getElementById('statusBadge').classList.remove('show');
             }
-        } catch (e) { }
-    });
-
-    player.on('exitfullscreen', () => {
-        try {
-            if (screen.orientation && screen.orientation.unlock) {
-                screen.orientation.unlock();
-            }
-        } catch (e) { }
-    });
-
-    // Auto-fullscreen when phone rotated to landscape while playing
-    if (screen.orientation) {
-        screen.orientation.addEventListener('change', () => {
-            if (screen.orientation.type.includes('landscape') && player.playing && !player.fullscreen.active) {
-                player.fullscreen.enter();
-            }
-        });
-    }
-
-    // ── KEYBOARD SEEK (desktop: arrow keys ±20s) ────────────────────────────
-    document.addEventListener('keydown', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-        if (e.key === 'ArrowLeft') { e.preventDefault(); doSeek('left'); }
-        else if (e.key === 'ArrowRight') { e.preventDefault(); doSeek('right'); }
-    });
-
-    // ── REMEMBER PLAYBACK POSITION ──────────────────────────────────────────
-    const storageKey = `plyr_pos_${idParam}`;
-    player.on('timeupdate', () => {
-        if (player.currentTime > 5) {
-            try { localStorage.setItem(storageKey, player.currentTime); } catch (e) { }
         }
-    });
-    player.on('ready', () => {
-        try {
-            const saved = parseFloat(localStorage.getItem(storageKey));
-            if (saved && saved > 5 && saved < (player.duration - 10)) {
-                player.currentTime = saved;
+
+        function showVolumeBar(level) {
+            const bar = document.getElementById('volumeBar');
+            const fill = document.getElementById('volumeFill');
+            bar.classList.add('show');
+            fill.style.height = `${level * 100}%`;
+        }
+
+        function hideVolumeBar() {
+            setTimeout(() => {
+                document.getElementById('volumeBar').classList.remove('show');
+            }, 1000);
+        }
+
+        // ── ACTION BUTTONS ─────────────────────────────────────────────────────
+        function mx_player() { window.location.href = `intent:${downloadlink}#Intent;package=com.mxtech.videoplayer.ad;end`; }
+        function vlc_player() { window.location.href = `vlc://${downloadlink}`; }
+        function km_player() { window.location.href = `intent:${downloadlink}#Intent;package=com.kmplayer;end`; }
+        function download() { window.location.href = downloadlink; }
+        function get_file() {
+            const regex = /(\d+)\?id=(\d+)&/;
+            const match = videolink.match(regex);
+            if (match) {
+                const chatId = "-100" + match[1];
+                const messageId = match[2];
+                window.location.href = `https://t.me/<!-- Username -->?start=file_${messageId}${chatId}`;
             }
-        } catch (e) { }
-    });
-    player.on('ended', () => {
-        try { localStorage.removeItem(storageKey); } catch (e) { }
-    });
-</script>
+        }
+        function copyUrl() {
+            navigator.clipboard.writeText(downloadlink)
+                .then(() => {
+                    const btn = document.querySelector('.action-btn[onclick="copyUrl()"]');
+                    const originalHTML = btn.innerHTML;
+                    btn.innerHTML = '<i class="bi bi-check-lg"></i> Copied!';
+                    btn.style.color = '#00d4ff';
+                    setTimeout(() => {
+                        btn.innerHTML = originalHTML;
+                        btn.style.color = '';
+                    }, 2000);
+                })
+                .catch((error) => console.error('Failed to copy URL: ', error));
+        }
+    </script>
+</body>
 
 </html>
