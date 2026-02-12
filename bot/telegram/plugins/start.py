@@ -17,26 +17,10 @@ from asyncio import sleep, gather
 from urllib.parse import quote
 
 db = Database()
-from bot.helper.func import subscribe
 
 
 @StreamBot.on_message(filters.command('start') & filters.private)
 async def start(bot: Client, message: Message):
-    if not await subscribe(bot, message):
-        try:
-            invite_link = await bot.export_chat_invite_link(Telegram.FORCE_SUB)
-            k = InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Join Channel", url=invite_link)]]
-            )
-            await message.reply(
-                "**Please Join Our Force Sub Channel to Use Me!**\n\n"
-                "Due to Overload, Only Channel Subscribers can use the Bot!",
-                reply_markup=k
-            )
-        except:
-            await message.reply("Current Force Sub Channel is invalid. Please contact Admin.")
-        return
-
     if "file_" in message.text:
         try:
             usr_cmd = message.text.split("_")[-1]
@@ -47,20 +31,7 @@ async def start(bot: Client, message: Message):
             await message.reply_cached_media(file_id=media.file_id, caption=f'**{media.file_name}**')
         except Exception as e:
             print(f"An error occurred: {e}")
-            await message.reply("File not found or I am not admin in that channel.")
-    else:
-        # Welcome Message
-        await message.reply_photo(
-            photo="https://graph.org/file/713ae4e945c71a396417d.jpg",
-            caption=f"👋 Hello {message.from_user.mention},\n\n"
-                    f"I am a **Save Restricted Content Bot**.\n"
-                    f"I can save posts from public/private channels and send them to you.\n\n"
-                    f"Type /help to know more.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Help", callback_data="help"), InlineKeyboardButton("About", callback_data="about")],
-                [InlineKeyboardButton("Terms", callback_data="terms"), InlineKeyboardButton("Plan", callback_data="plan")]
-            ])
-        )
+
 
 @StreamBot.on_message(filters.command('index'))
 async def start(bot: Client, message: Message):
@@ -1104,94 +1075,4 @@ async def browse_vc_stop_callback(bot: Client, query: CallbackQuery):
             await query.answer(f"❌ Error: {str(e)}", show_alert=True)
         except Exception:
             pass
-
-
-# --- Added Commands ---
-
-@StreamBot.on_message(filters.command('help') & filters.private)
-async def help_command(client, message):
-    text = (
-        "**Help Menu**\n\n"
-        "1. **Login**: /login to sign in with your Telegram account.\n"
-        "2. **Save**: Send a public or private post link.\n"
-        "3. **Batch**: /batch to save multiple posts.\n"
-        "4. **Settings**: /settings to configure your preferences.\n"
-        "5. **Premium**: /plan to check premium plans."
-    )
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Back", callback_data="start")]
-    ])
-    await message.reply(text, reply_markup=kb)
-
-@StreamBot.on_message(filters.command('terms') & filters.private)
-async def terms_command(client, message):
-    text = (
-        "**Terms of Service**\n\n"
-        "1. Do not use this bot for illegal purposes.\n"
-        "2. We are not responsible for any misuse.\n"
-        "3. Admins can ban you at any time."
-    )
-    await message.reply(text)
-
-@StreamBot.on_message(filters.command('plan') & filters.private)
-async def plan_command(client, message):
-    text = (
-        "**Premium Plans**\n\n"
-        "Unlock higher limits and faster speeds!\n"
-        "Use /pay to purchase via Stars or contact Admin."
-    )
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Buy Premium", callback_data="p_m")]
-    ])
-    await message.reply(text, reply_markup=kb)
-
-@StreamBot.on_callback_query(filters.regex('^help$'))
-async def help_cb(client, callback_query):
-    await callback_query.message.edit_text(
-        "**Help Menu**\n\n"
-        "1. **Login**: /login - Sign in\n"
-        "2. **Save**: Send link\n"
-        "3. **Batch**: /batch\n"
-        "4. **Settings**: /settings\n",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="start")]])
-    )
-
-@StreamBot.on_callback_query(filters.regex('^about$'))
-async def about_cb(client, callback_query):
-    await callback_query.message.edit_text(
-        "**About Me**\n\n"
-        "I am a Save Restricted Content Bot.\n"
-        "Version: v3.0\n"
-        "Dev: @NatKing",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="start")]])
-    )
-
-@StreamBot.on_callback_query(filters.regex('^terms$'))
-async def terms_cb(client, callback_query):
-    await callback_query.message.edit_text(
-        "**Terms**\n\n"
-        "Use responsibly.",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="start")]])
-    )
-
-@StreamBot.on_callback_query(filters.regex('^plan$'))
-async def plan_cb(client, callback_query):
-    await callback_query.message.edit_text(
-        "**Plans**\n\n"
-        "Check /pay for details.",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Back", callback_data="start")]])
-    )
-
-@StreamBot.on_callback_query(filters.regex('^start$'))
-async def start_cb(client, callback_query):
-    await callback_query.message.edit_text(
-        f"👋 Hello {callback_query.from_user.mention},\n\n"
-        f"I am a **Save Restricted Content Bot**.\n"
-        f"I can save posts from public/private channels and send them to you.\n\n"
-        f"Type /help to know more.",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Help", callback_data="help"), InlineKeyboardButton("About", callback_data="about")],
-            [InlineKeyboardButton("Terms", callback_data="terms"), InlineKeyboardButton("Plan", callback_data="plan")]
-        ])
-    )
 

@@ -6,7 +6,6 @@ import logging
 from subprocess import run as srun, PIPE
 from pyrogram import filters, Client
 from pyrogram.types import Message
-from pyrogram.errors import MessageNotModified
 from pyrogram.enums.parse_mode import ParseMode
 from bot.config import Telegram
 from bot.telegram import StreamBot
@@ -90,17 +89,12 @@ async def update_bot(bot: Client, message: Message):
         json.dump(flag_data, f)
 
     # Step 4: Show restarting status
-    try:
-        await status_msg.edit_text(
-            "✅ **Code updated!**\n"
-            "📦 **Dependencies installed!**\n\n"
-            "🔄 **Restarting bot...**",
-            parse_mode=ParseMode.MARKDOWN
-        )
-    except MessageNotModified:
-        pass
-    except Exception as e:
-        LOGGER.warning(f"Error editing status message: {e}")
+    await status_msg.edit_text(
+        "✅ **Code updated!**\n"
+        "📦 **Dependencies installed!**\n\n"
+        "🔄 **Restarting bot...**",
+        parse_mode=ParseMode.MARKDOWN
+    )
 
     LOGGER.info("Bot update triggered by owner. Restarting...")
 
