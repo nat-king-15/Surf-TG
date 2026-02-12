@@ -1,4 +1,4 @@
-from pyrogram import filters, Client, eq
+from pyrogram import filters, Client
 from pyrogram.types import Message
 from bot import LOGGER
 from bot.telegram import StreamBot
