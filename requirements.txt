@@ -10,3 +10,8 @@ motor
 pymongo
 py-tgcalls
 uvloop
+
+# Save-Restricted-Content-Bot features
+pytz
+yt-dlp
+Pillow

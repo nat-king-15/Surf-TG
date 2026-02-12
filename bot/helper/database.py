@@ -2,17 +2,25 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ASCENDING, DESCENDING
 from bson import ObjectId
 from bot.config import Telegram
+from datetime import datetime, timedelta
 import re
+import pytz
 
 
 class Database:
     def __init__(self):
         MONGODB_URI = Telegram.DATABASE_URL
         self.mongo_client = AsyncIOMotorClient(MONGODB_URI)
-        self.db = self.mongo_client["surftg"]
+        self.db = self.mongo_client[Telegram.MONGO_DB]
         self.collection = self.db["playlist"]
         self.config = self.db["config"]
         self.files = self.db["files"]
+        # New collections for Save-Restricted-Content-Bot features
+        self.users = self.db["users"]
+        self.premium_users = self.db["premium_users"]
+        self.user_settings = self.db["user_settings"]
+        self.user_sessions = self.db["user_sessions"]
+        self.daily_usage = self.db["daily_usage"]
         # Indexes for browse performance - handled async separately or just defined here
         # Motor create_index is awaitable, but __init__ cannot be async.
         # We can rely on background index creation or call a setup method.
@@ -366,3 +374,241 @@ class Database:
         folders = await self.collection.count_documents(folder_query)
         files = await self.collection.count_documents(file_query)
         return folders, files
+
+    # ═══════════════════════════════════════════════════════════════════
+    # User Management
+    # ═══════════════════════════════════════════════════════════════════
+
+    async def save_user(self, user_id: int, name: str = ""):
+        """Upsert user record."""
+        await self.users.update_one(
+            {"_id": user_id},
+            {"$set": {"name": name, "last_seen": datetime.utcnow()},
+             "$setOnInsert": {"joined": datetime.utcnow()}},
+            upsert=True
+        )
+
+    async def get_user(self, user_id: int) -> dict:
+        """Fetch user data."""
+        return await self.users.find_one({"_id": user_id})
+
+    async def get_all_users_count(self) -> int:
+        """Get total registered users."""
+        return await self.users.count_documents({})
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Premium Management
+    # ═══════════════════════════════════════════════════════════════════
+
+    async def is_premium(self, user_id: int) -> bool:
+        """Check if user has active premium."""
+        doc = await self.premium_users.find_one({"_id": user_id})
+        if not doc:
+            return False
+        expiry = doc.get("expiry")
+        if expiry and expiry > datetime.utcnow():
+            return True
+        # Expired — clean up
+        await self.premium_users.delete_one({"_id": user_id})
+        return False
+
+    async def add_premium(self, user_id: int, duration_value: int, duration_unit: str):
+        """
+        Grant premium to a user. Returns (True, expiry_date) or (False, error_msg).
+        Valid units: min, hours, days, weeks, month, year, decades.
+        """
+        try:
+            now = datetime.utcnow()
+            unit_map = {
+                "min": timedelta(minutes=duration_value),
+                "hours": timedelta(hours=duration_value),
+                "days": timedelta(days=duration_value),
+                "weeks": timedelta(weeks=duration_value),
+                "month": timedelta(days=30 * duration_value),
+                "year": timedelta(days=365 * duration_value),
+                "decades": timedelta(days=3650 * duration_value),
+            }
+            delta = unit_map.get(duration_unit)
+            if delta is None:
+                return False, "Invalid duration unit"
+
+            expiry = now + delta
+            await self.premium_users.update_one(
+                {"_id": user_id},
+                {"$set": {
+                    "expiry": expiry,
+                    "granted_at": now,
+                    "expireAt": expiry,
+                }},
+                upsert=True,
+            )
+            # TTL index for auto-cleanup of expired docs
+            await self.premium_users.create_index("expireAt", expireAfterSeconds=0)
+            return True, expiry
+        except Exception as e:
+            return False, str(e)
+
+    async def remove_premium(self, user_id: int):
+        """Revoke premium from a user."""
+        await self.premium_users.delete_one({"_id": user_id})
+
+    async def get_premium_expiry(self, user_id: int):
+        """Get premium expiry datetime. Returns None if not premium."""
+        doc = await self.premium_users.find_one({"_id": user_id})
+        if doc:
+            return doc.get("expiry")
+        return None
+
+    async def transfer_premium(self, from_id: int, to_id: int):
+        """Transfer remaining premium time. Returns (True, expiry) or (False, None)."""
+        doc = await self.premium_users.find_one({"_id": from_id})
+        if not doc or not doc.get("expiry"):
+            return False, None
+        expiry = doc["expiry"]
+        if expiry <= datetime.utcnow():
+            return False, None
+        # Remove from source
+        await self.premium_users.delete_one({"_id": from_id})
+        # Grant to target with same expiry
+        await self.premium_users.update_one(
+            {"_id": to_id},
+            {"$set": {
+                "expiry": expiry,
+                "granted_at": datetime.utcnow(),
+                "expireAt": expiry,
+                "transferred_from": from_id,
+            }},
+            upsert=True,
+        )
+        return True, expiry
+
+    async def get_premium_users_count(self) -> int:
+        """Get count of active premium users."""
+        return await self.premium_users.count_documents(
+            {"expiry": {"$gt": datetime.utcnow()}}
+        )
+
+    async def get_all_premium_users(self) -> list:
+        """Get list of all active premium users."""
+        cursor = self.premium_users.find(
+            {"expiry": {"$gt": datetime.utcnow()}}
+        )
+        return await cursor.to_list(length=None)
+
+    # ═══════════════════════════════════════════════════════════════════
+    # User Settings
+    # ═══════════════════════════════════════════════════════════════════
+
+    async def get_settings(self, user_id: int) -> dict:
+        """Get user settings. Returns defaults if none set."""
+        doc = await self.user_settings.find_one({"_id": user_id})
+        defaults = {
+            "chat_id": None,
+            "rename_tag": "",
+            "caption": "",
+            "replacements": {},
+            "delete_words": [],
+            "thumbnail": None,
+        }
+        if doc:
+            defaults.update({k: v for k, v in doc.items() if k != "_id"})
+        return defaults
+
+    async def update_setting(self, user_id: int, key: str, value):
+        """Update a single user setting."""
+        await self.user_settings.update_one(
+            {"_id": user_id},
+            {"$set": {key: value}},
+            upsert=True
+        )
+
+    async def clear_setting(self, user_id: int, key: str):
+        """Remove a single user setting (reset to default)."""
+        await self.user_settings.update_one(
+            {"_id": user_id},
+            {"$unset": {key: ""}}
+        )
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Session & Bot Token Storage
+    # ═══════════════════════════════════════════════════════════════════
+
+    async def save_session(self, user_id: int, encrypted_session: str):
+        """Store encrypted user session string."""
+        await self.user_sessions.update_one(
+            {"_id": user_id},
+            {"$set": {"session": encrypted_session, "updated_at": datetime.utcnow()}},
+            upsert=True
+        )
+
+    async def get_session(self, user_id: int) -> str:
+        """Get encrypted session string. Returns None if not set."""
+        doc = await self.user_sessions.find_one({"_id": user_id})
+        if doc:
+            return doc.get("session")
+        return None
+
+    async def delete_session(self, user_id: int):
+        """Delete user session."""
+        await self.user_sessions.update_one(
+            {"_id": user_id},
+            {"$unset": {"session": ""}}
+        )
+
+    async def save_bot_token(self, user_id: int, token: str):
+        """Store custom bot token for a user."""
+        await self.user_sessions.update_one(
+            {"_id": user_id},
+            {"$set": {"bot_token": token}},
+            upsert=True
+        )
+
+    async def get_bot_token(self, user_id: int) -> str:
+        """Get custom bot token. Returns None if not set."""
+        doc = await self.user_sessions.find_one({"_id": user_id})
+        if doc:
+            return doc.get("bot_token")
+        return None
+
+    async def delete_bot_token(self, user_id: int):
+        """Delete custom bot token."""
+        await self.user_sessions.update_one(
+            {"_id": user_id},
+            {"$unset": {"bot_token": ""}}
+        )
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Daily Usage Tracking
+    # ═══════════════════════════════════════════════════════════════════
+
+    async def increment_usage(self, user_id: int) -> int:
+        """Increment daily usage counter. Returns new count."""
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        result = await self.daily_usage.find_one_and_update(
+            {"_id": f"{user_id}_{today}"},
+            {"$inc": {"count": 1}},
+            upsert=True,
+            return_document=True
+        )
+        return result.get("count", 1) if result else 1
+
+    async def get_usage(self, user_id: int) -> int:
+        """Get today's usage count for a user."""
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        doc = await self.daily_usage.find_one({"_id": f"{user_id}_{today}"})
+        return doc.get("count", 0) if doc else 0
+
+    async def get_remaining_limit(self, user_id: int) -> int:
+        """
+        Get remaining downloads for today.
+        Returns -1 for unlimited (premium with 0 limit).
+        """
+        is_prem = await self.is_premium(user_id)
+        limit = Telegram.PREMIUM_LIMIT if is_prem else Telegram.FREEMIUM_LIMIT
+
+        if limit == 0:
+            return -1  # Unlimited
+
+        used = await self.get_usage(user_id)
+        return max(0, limit - used)
+

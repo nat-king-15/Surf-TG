@@ -27,3 +27,43 @@ class Telegram:
     SUDO_USERS = {int(x) for x in getenv("SUDO_USERS", "").split() if x.isdigit()}
     UPSTREAM_REPO = getenv('UPSTREAM_REPO', 'https://github.com/nat-king-15/Surf-TG')
     UPSTREAM_BRANCH = getenv('UPSTREAM_BRANCH', 'main')
+
+    # --- Save-Restricted-Content-Bot Features ---
+    MONGO_DB = getenv("MONGO_DB", "surftg")
+
+    # Encryption keys for session strings (AES-GCM)
+    MASTER_KEY = getenv("MASTER_KEY", "default_master_key_change_me_32!")
+    IV_KEY = getenv("IV_KEY", "default_iv_key_16")
+
+    # Force subscription channel (empty = disabled)
+    FORCE_SUB = getenv("FORCE_SUB", "")
+
+    # Usage limits per day
+    FREEMIUM_LIMIT = int(getenv("FREEMIUM_LIMIT", "25"))
+    PREMIUM_LIMIT = int(getenv("PREMIUM_LIMIT", "0"))  # 0 = unlimited
+
+    # Premium plan config — matches source bot's P0 format
+    # s=stars, du=duration value, u=duration unit, l=label
+    PREMIUM_PLANS = {
+        "d": {
+            "s": int(getenv("PLAN_D_S", "1")),
+            "du": int(getenv("PLAN_D_DU", "1")),
+            "u": getenv("PLAN_D_U", "days"),
+            "l": getenv("PLAN_D_L", "Daily"),
+        },
+        "w": {
+            "s": int(getenv("PLAN_W_S", "3")),
+            "du": int(getenv("PLAN_W_DU", "1")),
+            "u": getenv("PLAN_W_U", "weeks"),
+            "l": getenv("PLAN_W_L", "Weekly"),
+        },
+        "m": {
+            "s": int(getenv("PLAN_M_S", "5")),
+            "du": int(getenv("PLAN_M_DU", "1")),
+            "u": getenv("PLAN_M_U", "month"),
+            "l": getenv("PLAN_M_L", "Monthly"),
+        },
+    }
+
+    # yt-dlp cookies file (optional)
+    YT_COOKIES = getenv("YT_COOKIES", "")

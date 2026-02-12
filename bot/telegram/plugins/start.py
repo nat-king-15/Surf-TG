@@ -10,17 +10,59 @@ from bot.telegram import StreamBot
 from pyrogram import filters, Client
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from os.path import splitext
-from pyrogram.errors import FloodWait
+from pyrogram.errors import FloodWait, UserNotParticipant
 from pyrogram.enums.parse_mode import ParseMode
-from pyrogram.enums import ChatType
+from pyrogram.enums import ChatType, ChatMemberStatus
 from asyncio import sleep, gather
 from urllib.parse import quote
 
 db = Database()
 
 
+async def check_force_sub(bot: Client, user_id: int) -> bool:
+    """Check if user has joined the force-sub channel. Returns True if OK."""
+    if not Telegram.FORCE_SUB:
+        return True
+    try:
+        member = await bot.get_chat_member(int(Telegram.FORCE_SUB), user_id)
+        return member.status in [
+            ChatMemberStatus.MEMBER,
+            ChatMemberStatus.ADMINISTRATOR,
+            ChatMemberStatus.OWNER,
+        ]
+    except UserNotParticipant:
+        return False
+    except Exception as e:
+        LOGGER.warning(f"Force sub check failed: {e}")
+        return True  # Allow on error to not block users
+
+
 @StreamBot.on_message(filters.command('start') & filters.private)
 async def start(bot: Client, message: Message):
+    user_id = message.from_user.id
+    user_name = message.from_user.first_name or ""
+
+    # Register user
+    await db.save_user(user_id, user_name)
+
+    # Force subscription check
+    if not await check_force_sub(bot, user_id):
+        try:
+            chat = await bot.get_chat(int(Telegram.FORCE_SUB))
+            invite_link = chat.invite_link or await bot.export_chat_invite_link(int(Telegram.FORCE_SUB))
+            await message.reply(
+                f"🔒 **Please join our channel first!**\n\n"
+                f"You must join to use this bot.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📢 Join Channel", url=invite_link)],
+                    [InlineKeyboardButton("✅ I've Joined", callback_data="force_sub_check")],
+                ]),
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            return
+        except Exception as e:
+            LOGGER.error(f"Force sub error: {e}")
+
     if "file_" in message.text:
         try:
             usr_cmd = message.text.split("_")[-1]
@@ -31,7 +73,178 @@ async def start(bot: Client, message: Message):
             await message.reply_cached_media(file_id=media.file_id, caption=f'**{media.file_name}**')
         except Exception as e:
             print(f"An error occurred: {e}")
+    elif len(message.command) == 1:
+        # Clean /start — show welcome message
+        is_prem = await db.is_premium(user_id)
+        plan_text = "💎 Premium" if is_prem else "🆓 Free"
+        await message.reply(
+            f"👋 **Welcome, {user_name}!**\n\n"
+            f"I can download restricted content from Telegram channels "
+            f"and more!\n\n"
+            f"📊 **Plan:** {plan_text}\n\n"
+            f"Use /help to see all available commands.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("📖 Help", callback_data="show_help"),
+                 InlineKeyboardButton("⚙️ Settings", callback_data="sett|back")],
+                [InlineKeyboardButton("💎 Plans", callback_data="show_plans"),
+                 InlineKeyboardButton("📊 Status", callback_data="show_status")],
+            ]),
+            parse_mode=ParseMode.MARKDOWN,
+        )
 
+
+# ═══════════════════════════════════════════════════════════════════
+# /help - Show all commands
+# ═══════════════════════════════════════════════════════════════════
+
+HELP_TEXT = """📖 **Surf-TG Commands**
+━━━━━━━━━━━━━━━━━━
+
+**📥 Download**
+• Paste a `t.me` link → download single message
+• `/batch <start_link> <end_link>` → batch download
+• `/cancel` → stop active batch
+
+**🔐 Account**
+• `/login` → login with your Telegram account
+• `/logout` → remove saved session
+• `/setbot <token>` → set custom bot for forwarding
+• `/rembot` → remove custom bot
+
+**⚙️ Settings**
+• `/settings` → customize downloads
+  ├ Chat ID, Rename, Caption
+  ├ Word Replacements, Delete Words
+  └ Custom Thumbnail
+
+**💎 Premium**
+• `/plans` → view premium plans
+• `/mystatus` → your account status
+• `/transfer <user_id>` → transfer premium
+
+**🎬 Downloads**
+• `/ytdl <url>` → download video (YouTube, etc.)
+• `/adl <url>` → download audio only
+
+**👑 Owner Only**
+• `/add <user_id> <hours>` → grant premium
+• `/rem <user_id>` → revoke premium
+• `/users` → list premium users
+• `/broadcast` → send to all users
+• `/botstats` → bot statistics
+"""
+
+
+@StreamBot.on_message(filters.command('help') & filters.private)
+async def help_command(bot: Client, message: Message):
+    """Show help with all available commands."""
+    await message.reply(
+        HELP_TEXT,
+        parse_mode=ParseMode.MARKDOWN,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("💎 Plans", callback_data="show_plans"),
+             InlineKeyboardButton("⚙️ Settings", callback_data="sett|back")],
+        ]),
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Callback handlers for start menu & force sub
+# ═══════════════════════════════════════════════════════════════════
+
+@StreamBot.on_callback_query(filters.regex(r'^force_sub_check$'))
+async def force_sub_check_callback(bot: Client, query: CallbackQuery):
+    """Re-check force sub after user clicks 'I've Joined'."""
+    if await check_force_sub(bot, query.from_user.id):
+        await query.message.edit_text("✅ **Verified!** You can now use the bot.\n\nUse /help to see commands.")
+        await query.answer("✅ Verified!")
+    else:
+        await query.answer("❌ You haven't joined yet!", show_alert=True)
+
+
+@StreamBot.on_callback_query(filters.regex(r'^show_help$'))
+async def show_help_callback(bot: Client, query: CallbackQuery):
+    """Show help text via callback."""
+    await query.message.edit_text(
+        HELP_TEXT,
+        parse_mode=ParseMode.MARKDOWN,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ Back", callback_data="show_start")],
+        ]),
+    )
+    await query.answer()
+
+
+@StreamBot.on_callback_query(filters.regex(r'^show_plans$'))
+async def show_plans_callback(bot: Client, query: CallbackQuery):
+    """Show plans via callback — redirect to /plans logic."""
+    from bot.utils.func import format_expiry
+    user_id = query.from_user.id
+    is_prem = await db.is_premium(user_id)
+    expiry = await db.get_premium_expiry(user_id) if is_prem else None
+
+    plans = Telegram.PREMIUM_PLANS
+    text = "💎 **Premium Plans**\n━━━━━━━━━━━━━━━━━━\n\n"
+    if is_prem:
+        text += f"✅ Currently **Premium** — Expires: {format_expiry(expiry)}\n\n"
+    else:
+        text += f"🆓 Free: {Telegram.FREEMIUM_LIMIT} files/day\n💎 Premium: {'Unlimited' if Telegram.PREMIUM_LIMIT == 0 else str(Telegram.PREMIUM_LIMIT)}\n\n"
+    buttons = []
+    for plan_key, plan_data in plans.items():
+        text += f"• **{plan_data['label']}** — ⭐ {plan_data['price']} Stars\n"
+        buttons.append(InlineKeyboardButton(f"⭐ {plan_data['label']} ({plan_data['price']})", callback_data=f"buy|{plan_key}"))
+    text += "\n_Pay with Telegram Stars_ ⭐"
+    keyboard = [[b] for b in buttons] + [[InlineKeyboardButton("⬅️ Back", callback_data="show_start")]]
+    await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
+    await query.answer()
+
+
+@StreamBot.on_callback_query(filters.regex(r'^show_status$'))
+async def show_status_callback(bot: Client, query: CallbackQuery):
+    """Show user status via callback."""
+    from bot.utils.func import format_expiry, time_remaining
+    user_id = query.from_user.id
+    is_prem = await db.is_premium(user_id)
+    usage = await db.get_usage(user_id)
+    remaining = await db.get_remaining_limit(user_id)
+
+    text = "📊 **Your Status**\n━━━━━━━━━━━━━━━━━━\n\n"
+    if is_prem:
+        expiry = await db.get_premium_expiry(user_id)
+        text += f"💎 Premium — Expires: {format_expiry(expiry)} ({time_remaining(expiry)})\n"
+        limit_text = "Unlimited" if remaining == -1 else str(remaining)
+        text += f"📥 Today: {usage} / {limit_text}\n"
+    else:
+        text += f"🆓 Free — {usage}/{Telegram.FREEMIUM_LIMIT} used today ({remaining} left)\n"
+
+    has_session = bool(await db.get_session(user_id))
+    text += f"🔐 Session: {'✅' if has_session else '❌'}\n"
+    await query.message.edit_text(
+        text, parse_mode=ParseMode.MARKDOWN,
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back", callback_data="show_start")]]),
+    )
+    await query.answer()
+
+
+@StreamBot.on_callback_query(filters.regex(r'^show_start$'))
+async def show_start_callback(bot: Client, query: CallbackQuery):
+    """Go back to start menu."""
+    user_name = query.from_user.first_name or ""
+    is_prem = await db.is_premium(query.from_user.id)
+    plan_text = "💎 Premium" if is_prem else "🆓 Free"
+    await query.message.edit_text(
+        f"👋 **Welcome, {user_name}!**\n\n"
+        f"I can download restricted content from Telegram channels and more!\n\n"
+        f"📊 **Plan:** {plan_text}\n\nUse /help to see all available commands.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📖 Help", callback_data="show_help"),
+             InlineKeyboardButton("⚙️ Settings", callback_data="sett|back")],
+            [InlineKeyboardButton("💎 Plans", callback_data="show_plans"),
+             InlineKeyboardButton("📊 Status", callback_data="show_status")],
+        ]),
+        parse_mode=ParseMode.MARKDOWN,
+    )
+    await query.answer()
 
 @StreamBot.on_message(filters.command('index'))
 async def start(bot: Client, message: Message):
