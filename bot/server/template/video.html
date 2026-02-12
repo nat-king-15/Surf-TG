@@ -8,7 +8,7 @@
     <link rel="shortcut icon" href="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/src/ico2.png"
         type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-    <title>Surf-TG: <!-- Filename --> </title>
+    <title>Natking-TG: <!-- Filename --> </title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/css/plyr.css">
     <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -360,13 +360,117 @@
         .plyr--fullscreen-active .seek-flash.right {
             border-radius: 0;
         }
+
+        /* Mobile Layout: 2 Rows for Controls */
+        @media (max-width: 480px) {
+            .plyr__controls {
+                flex-wrap: wrap !important;
+                padding-top: 25px !important;
+                /* Add space at top for the progress bar which we will absolute position or just flow */
+                justify-content: flex-start !important;
+            }
+
+            /* Row 1: Progress Bar & Duration */
+            .plyr__progress__container,
+            .plyr__time {
+                width: 100% !important;
+                flex: 0 0 100% !important;
+                order: 1 !important;
+                margin-left: 0 !important;
+                padding-bottom: 5px !important;
+            }
+
+            .plyr__progress__container {
+                margin-bottom: 5px !important;
+            }
+
+            /* Row 2: All Buttons & Volume */
+            .plyr__controls__item {
+                order: 2 !important;
+                flex: 0 0 auto !important;
+            }
+
+            /* Specific tweaks to make Row 2 look good */
+            .plyr__volume {
+                width: auto !important;
+                min-width: 0 !important;
+            }
+
+            /* Hide Duration from Row 2 if it duplicates, but Plyr splits current/duration. 
+               Let's try to keep them together if possible, or just let them flow.
+               Optimized approach: 
+               Row 1: Progress Bar
+               Row 2: Time | Controls 
+               
+               User asked: "first row me video ka duration aur progress bar" 
+            */
+
+            .plyr__progress {
+                order: 1 !important;
+                flex: 0 0 100% !important;
+                margin-bottom: 10px !important;
+            }
+
+            .plyr__time {
+                order: 1 !important;
+                /* If we want duration specifically on row 1, it might crowd the progress bar if inline.
+                    Let's try: Row 1 = Time + Progress. 
+                    Actually, standar mobile players often have:
+                    Row 1: Time -- Progress -- Time
+                    Row 2: Controls
+                    
+                    But user said: "first row me video ka duration aur progress bar"
+                 */
+            }
+
+            /* 
+               Let's try this specific layout based on request:
+               Container: flex-wrap
+               
+               Item 1: Time (Current / Duration) -> Order 1
+               Item 2: Progress Bar -> Order 1 (Flex-grow)
+               
+               Item 3..N: Buttons -> Order 2
+            */
+
+            .plyr__controls>.plyr__time,
+            .plyr__progress {
+                order: 1 !important;
+                margin-bottom: 8px !important;
+            }
+
+            /* Make progress take available space in Row 1 */
+            .plyr__progress {
+                flex: 1 1 auto !important;
+                min-width: 100px !important;
+                /* Ensure visibility */
+            }
+
+            /* Make controls take Row 2 */
+            .plyr__controls>button,
+            .plyr__volume,
+            .plyr__menu {
+                order: 2 !important;
+            }
+
+            /* Center controls in Row 2 if desired, or space-between */
+            .plyr__controls {
+                align-content: center !important;
+            }
+        }
     </style>
 </head>
 
 <body>
     <nav class="navbar">
         <a href="/">
-            <img src="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/src/logo%20(2).png" alt="Logo">
+            <!-- Keeping the logo source for now as requested by user to only change name, unless they provided a new logo. 
+                 User said "project me app ka name Surf-Tg ko change kr do". 
+                 I will assume the logo image might still be appropriate or I can't change it without a new URL.
+                 But I will change the alt text and visible text. 
+            -->
+            <img src="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/src/logo%20(2).png"
+                alt="Natking-TG Logo">
         </a>
         <form id="signoutForm" action="/logout" method="post">
             <button type="submit" class="btn-logout"><i class="bi bi-box-arrow-left"></i> Logout</button>
@@ -397,7 +501,7 @@
 
     <div class="footer">
         Made with ❤️ by <a href="https://github.com/weebzone" target="_blank">Karan Adhikari</a><br>
-        &copy; 2024 <a href="https://github.com/weebzone/Surf-TG" target="_blank">Surf-TG</a>
+        &copy; 2026 <a href="https://github.com/weebzone/Surf-TG" target="_blank">Natking-TG</a>
     </div>
 </body>
 <script>

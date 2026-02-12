@@ -44,7 +44,7 @@ async def start(bot: Client, message: Message):
         try:
             last_id = message.id
             start_message = (
-                "🔄 Please perform this action only once at the beginning of Surf-Tg usage.\n\n"
+                "🔄 Please perform this action only once at the beginning of Natking-TG usage.\n\n"
                 "📋 File listing is currently in progress.\n\n"
                 "📂 Auto-creating folders from Topic hierarchy...\n\n"
                 "🚫 Please refrain from sending any additional files or indexing other channels until this process completes.\n\n"

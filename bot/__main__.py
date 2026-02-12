@@ -39,7 +39,7 @@ async def _send_update_notification():
                     message_id=message_id,
                     text=(
                         "✅ **Bot updated successfully!**\n\n"
-                        f"🤖 **Surf-TG v{__version__}** is now running.\n"
+                        f"🤖 **Natking-TG v{__version__}** is now running.\n"
                         "🟢 Status: Online"
                     ),
                     parse_mode=ParseMode.MARKDOWN
@@ -50,7 +50,7 @@ async def _send_update_notification():
                     chat_id=chat_id,
                     text=(
                         "✅ **Bot updated & restarted successfully!**\n\n"
-                        f"🤖 **Surf-TG v{__version__}** is now running.\n"
+                        f"🤖 **Natking-TG v{__version__}** is now running.\n"
                         "🟢 Status: Online"
                     ),
                     parse_mode=ParseMode.MARKDOWN
@@ -60,7 +60,7 @@ async def _send_update_notification():
         LOGGER.warning(f"Could not send update notification: {e}")
 
 async def start_services():
-    LOGGER.info(f'Initializing Surf-TG v-{__version__}')
+    LOGGER.info(f'Initializing Natking-TG v-{__version__}')
     await asleep(1.2)
     
     await StreamBot.start()
@@ -87,7 +87,7 @@ async def start_services():
     await server.setup()
     await web.TCPSite(server, '0.0.0.0', Telegram.PORT).start()
 
-    LOGGER.info("Surf-TG Started Revolving !")
+    LOGGER.info("Natking-TG Started Revolving !")
     
     # Post-restart notification (after /update command)
     await _send_update_notification()
