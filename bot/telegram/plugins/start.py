@@ -12,6 +12,7 @@ from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, 
 from os.path import splitext
 from pyrogram.errors import FloodWait
 from pyrogram.enums.parse_mode import ParseMode
+from pyrogram.enums import ChatType
 from asyncio import sleep, gather
 from urllib.parse import quote
 
@@ -500,9 +501,15 @@ async def _build_folder_keyboard(folder_id, channel_id, page=1):
     return text, InlineKeyboardMarkup(buttons) if buttons else None
 
 
-@StreamBot.on_message(filters.command('browse') & filters.private)
+@StreamBot.on_message(filters.command('browse'))
 async def browse_command(bot: Client, message: Message):
     """Show channels to browse as inline keyboard buttons."""
+    # Check if authorized (Private or Auth Channel)
+    if message.chat.type != ChatType.PRIVATE:
+        auth_channels = await _get_auth_channels()
+        if str(message.chat.id) not in auth_channels:
+            return
+
     try:
         auth_channels = await _get_auth_channels()
         
