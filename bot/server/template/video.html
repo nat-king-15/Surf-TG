@@ -555,6 +555,19 @@
 
             // Inject custom gesture elements
             injectGestureElements();
+
+            // ── ORIENTATION LOGIC ──────────────────────────────────────────────────
+            player.on('enterfullscreen', () => {
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch((err) => console.log('Orientation lock failed:', err));
+                }
+            });
+
+            player.on('exitfullscreen', () => {
+                if (screen.orientation && screen.orientation.unlock) {
+                    screen.orientation.unlock();
+                }
+            });
         });
 
         // ── GESTURE LOGIC ──────────────────────────────────────────────────────
