@@ -78,12 +78,6 @@ async def start_services():
     await asleep(2)
     LOGGER.info('Initalizing Surf Web Server..')
     server = web.AppRunner(await web_server())
-    LOGGER.info("Server CleanUp!")
-    await server.cleanup()
-    
-    await asleep(2)
-    LOGGER.info("Server Setup Started !")
-    
     await server.setup()
     await web.TCPSite(server, '0.0.0.0', Telegram.PORT).start()
 
