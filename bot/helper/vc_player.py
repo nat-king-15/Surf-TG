@@ -108,14 +108,21 @@ async def start_vc_stream(chat_id: int, stream_url: str, title: str = "",
 
 async def stop_vc_stream(chat_id: int):
     """Stop the current VC stream and leave the voice chat."""
+    info = None
     try:
         stop_auto_refresh(int(chat_id))
-        await call.leave_call(int(chat_id))
+        try:
+            await call.leave_call(int(chat_id))
+        except Exception:
+            pass # Ignore validation errors if already left
+            
         info = active_streams.pop(int(chat_id), None)
         LOGGER.info(f"VC stream stopped in {chat_id}")
         return True, "Stream stopped", info
     except Exception as e:
-        info = active_streams.pop(int(chat_id), None)
+        # Check if we can recover info even if leave_call failed
+        if not info:
+            info = active_streams.pop(int(chat_id), None)
         return False, f"Error: {str(e)}", info
 
 

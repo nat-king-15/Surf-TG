@@ -1048,7 +1048,11 @@ async def browse_vc_stop_callback(bot: Client, query: CallbackQuery):
         vc_chat_id = int(parts[1])
         
         success, message, stream_info = await stop_vc_stream(vc_chat_id)
-        await query.answer("⏹ Stream stopped")
+        
+        try:
+            await query.answer("⏹ Stream stopped")
+        except Exception:
+            pass
         
         # Navigate back to file action menu
         # bfi format: bfi|msg_id|chat_id|hash|folder_id
@@ -1067,5 +1071,8 @@ async def browse_vc_stop_callback(bot: Client, query: CallbackQuery):
             )
     except Exception as e:
         LOGGER.error(f"VC stop error: {e}")
-        await query.answer(f"❌ Error: {str(e)}", show_alert=True)
+        try:
+            await query.answer(f"❌ Error: {str(e)}", show_alert=True)
+        except Exception:
+            pass
 
