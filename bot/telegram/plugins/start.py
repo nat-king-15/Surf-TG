@@ -542,6 +542,7 @@ async def browse_command(bot: Client, message: Message):
 async def browse_home_callback(bot: Client, query: CallbackQuery):
     """Go back to channel list."""
     try:
+        await query.answer()
         auth_channels = await _get_auth_channels()
         buttons = []
         for ch_id in auth_channels:
@@ -566,15 +567,15 @@ async def browse_home_callback(bot: Client, query: CallbackQuery):
             reply_markup=InlineKeyboardMarkup(buttons),
             parse_mode=ParseMode.MARKDOWN
         )
-        await query.answer()
     except Exception as e:
-        await query.answer(f"Error: {str(e)}", show_alert=True)
+        LOGGER.error(f"Browse home callback error: {e}")
 
 
 @StreamBot.on_callback_query(filters.regex(r'^bch\|'))
 async def browse_channel_callback(bot: Client, query: CallbackQuery):
     """User clicked a channel - show root folders."""
     try:
+        await query.answer()
         _, channel_id = query.data.split("|", 1)
         
         try:
@@ -592,16 +593,15 @@ async def browse_channel_callback(bot: Client, query: CallbackQuery):
             reply_markup=keyboard,
             parse_mode=ParseMode.MARKDOWN
         )
-        await query.answer()
     except Exception as e:
         LOGGER.error(f"Browse channel callback error: {e}")
-        await query.answer(f"Error: {str(e)}", show_alert=True)
 
 
 @StreamBot.on_callback_query(filters.regex(r'^bf\|'))
 async def browse_folder_callback(bot: Client, query: CallbackQuery):
     """User clicked a folder - show its contents."""
     try:
+        await query.answer()
         parts = query.data.split("|")
         # bf|folder_id|channel_id|page
         folder_id = parts[1]
@@ -629,16 +629,15 @@ async def browse_folder_callback(bot: Client, query: CallbackQuery):
             reply_markup=keyboard,
             parse_mode=ParseMode.MARKDOWN
         )
-        await query.answer()
     except Exception as e:
         LOGGER.error(f"Browse folder callback error: {e}")
-        await query.answer(f"Error: {str(e)}", show_alert=True)
 
 
 @StreamBot.on_callback_query(filters.regex(r'^bfi\|'))
 async def browse_file_callback(bot: Client, query: CallbackQuery):
     """User clicked a file - show action menu."""
     try:
+        await query.answer()
         parts = query.data.split("|")
         # bfi|msg_id|chat_id|hash|folder_id
         msg_id = parts[1]
@@ -650,11 +649,11 @@ async def browse_file_callback(bot: Client, query: CallbackQuery):
         fname = "File"
         fsize = "?"
         # Try both int and string types for file_id/chat_id to handle type mismatches
-        file_doc = db.collection.find_one({"file_id": int(msg_id), "chat_id": chat_id, "type": "file"})
+        file_doc = await db.collection.find_one({"file_id": int(msg_id), "chat_id": chat_id, "type": "file"})
         if not file_doc:
-            file_doc = db.collection.find_one({"file_id": int(msg_id), "chat_id": int(chat_id), "type": "file"})
+            file_doc = await db.collection.find_one({"file_id": int(msg_id), "chat_id": int(chat_id), "type": "file"})
         if not file_doc:
-            file_doc = db.collection.find_one({"file_id": str(msg_id), "chat_id": chat_id, "type": "file"})
+            file_doc = await db.collection.find_one({"file_id": str(msg_id), "chat_id": chat_id, "type": "file"})
         file_type = ""
         if file_doc:
             fname = file_doc.get('name', file_doc.get('title', 'File'))
@@ -706,22 +705,19 @@ async def browse_file_callback(bot: Client, query: CallbackQuery):
             reply_markup=action_buttons,
             parse_mode=ParseMode.MARKDOWN
         )
-        await query.answer()
     except Exception as e:
         LOGGER.error(f"Browse file callback error: {e}")
-        await query.answer(f"Error: {str(e)}", show_alert=True)
 
 
 @StreamBot.on_callback_query(filters.regex(r'^bs\|'))
 async def browse_send_file_callback(bot: Client, query: CallbackQuery):
     """User chose 'Send to Bot' - send the file directly."""
     try:
+        await query.answer("📥 Sending file...")
         parts = query.data.split("|")
         # bs|msg_id|chat_id
         msg_id = parts[1]
         chat_id = parts[2]
-        
-        await query.answer("📥 Sending file...")
         
         await bot.copy_message(
             chat_id=query.from_user.id,
@@ -730,7 +726,6 @@ async def browse_send_file_callback(bot: Client, query: CallbackQuery):
         )
     except Exception as e:
         LOGGER.error(f"Send file error: {e}")
-        await query.answer(f"❌ Error: {str(e)}", show_alert=True)
 
 
 @StreamBot.on_callback_query(filters.regex(r'^bvc\|'))
@@ -738,6 +733,7 @@ async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
     """User clicked 'Play in VC' - stream video in auth channel voice chat."""
     try:
         from bot.helper.vc_player import start_vc_stream, get_vc_invite_link, build_progress_bar, format_time
+        await query.answer("🔊 Starting VC stream...")
         
         parts = query.data.split("|")
         # bvc|msg_id|chat_id|hash
@@ -752,17 +748,15 @@ async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
         # Get file info from DB
         fname = "stream"
         folder_id = "root"
-        file_doc = db.collection.find_one({"file_id": int(msg_id), "chat_id": chat_id, "type": "file"})
+        file_doc = await db.collection.find_one({"file_id": int(msg_id), "chat_id": chat_id, "type": "file"})
         if not file_doc:
-            file_doc = db.collection.find_one({"file_id": int(msg_id), "chat_id": int(chat_id), "type": "file"})
+            file_doc = await db.collection.find_one({"file_id": int(msg_id), "chat_id": int(chat_id), "type": "file"})
         if file_doc:
             fname = file_doc.get('name', file_doc.get('title', 'stream'))
             folder_id = file_doc.get('parent_folder', 'root')
         
         encoded_name = quote(fname, safe='')
         stream_url = f"{base_url}/{clean_chat_id}/{encoded_name}?id={msg_id}&hash={file_hash}"
-        
-        await query.answer("🔊 Starting VC stream...")
         
         # Use auth channel for VC
         vc_chat_id = int(Telegram.AUTH_CHANNEL[0]) if Telegram.AUTH_CHANNEL else int(chat_id)
@@ -796,7 +790,11 @@ async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
             # Start auto-refresh every 5 seconds
             start_auto_refresh(vc_chat_id, query.message, bot)
         else:
-            await query.answer(f"❌ {message}", show_alert=True)
+            try:
+                # Attempt to show alert if possible, or send modification
+                await query.message.edit_text(f"❌ Failed to start VC: {message}\n\nplease try again or check logs.")
+            except:
+                 pass
     except Exception as e:
         LOGGER.error(f"VC play error: {e}")
         await query.answer(f"❌ Error: {str(e)}", show_alert=True)
