@@ -8,10 +8,7 @@ from pyrogram.types import Message
 
 # Get authorized users (Owner + Sudo)
 def get_authorized_users():
-    users = {Telegram.OWNER_ID}
-    if Telegram.SUDO_USERS:
-        users.update(Telegram.SUDO_USERS)
-    return users
+    return {Telegram.OWNER_ID}
 
 @StreamBot.on_message(filters.command(["sh", "shell", "bash"]))
 async def shell_command(client, message: Message):
