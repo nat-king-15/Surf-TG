@@ -5,7 +5,18 @@ from aiohttp_session.cookie_storage import EncryptedCookieStorage
 
 from bot.server.stream_routes import routes
 
-secret_key = Fernet.generate_key()
+import os
+
+# Logic to persist secret key
+SECRET_FILE = ".server_secret"
+
+if os.path.exists(SECRET_FILE):
+    with open(SECRET_FILE, "rb") as f:
+        secret_key = f.read()
+else:
+    secret_key = Fernet.generate_key()
+    with open(SECRET_FILE, "wb") as f:
+        f.write(secret_key)
 
 async def web_server():
     web_app = Application(client_max_size=30000000)
