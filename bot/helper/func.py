@@ -7,7 +7,8 @@ import asyncio
 from datetime import datetime
 from bot.config import Telegram
 from pyrogram import enums
-# Initialize database instance for helper functions
+from pyrogram.errors import UserNotParticipant
+from bot.helper.database import Database
 
 # Initialize database instance for helper functions
 db = Database()
