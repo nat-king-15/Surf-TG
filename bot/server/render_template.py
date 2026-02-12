@@ -64,14 +64,34 @@ async def render_page(id, secure_hash, is_admin=False, html='', playlist='', dat
         if filename is None:
             filename = "Proper Filename is Missing"
         filename = re.sub(r'[,|_\',]', ' ', filename)
+        
+        # Base Replacements to avoid repetition
+        base_replacements = {
+            '<!-- Filename -->': filename,
+            '<!-- Theme -->': theme.lower(),
+            '<!-- Size -->': size,
+            '<!-- Username -->': StreamBot.me.username,
+            '<!-- BaseUrl -->': Telegram.BASE_URL,
+            '<!-- ChatId -->': chat_id.replace("-100", ""),
+            '<!-- MsgId -->': str(id),
+            '<!-- Hash -->': secure_hash
+        }
+
         if tag == 'video':
             async with aiopen(ospath.join(tpath, 'video.html'), encoding='utf-8') as r:
                 poster = f"/api/thumb/{chat_id}?id={id}"
-                html = (await r.read()).replace('<!-- Filename -->', filename).replace("<!-- Theme -->", theme.lower()).replace('<!-- Poster -->', poster).replace('<!-- Size -->', size).replace('<!-- Username -->', StreamBot.me.username)
+                html = await r.read()
+                html = html.replace('<!-- Poster -->', poster)
+                for key, value in base_replacements.items():
+                    html = html.replace(key, value)
         elif file_data.mime_type == 'application/pdf':
             async with aiopen(ospath.join(tpath, 'pdf.html'), encoding='utf-8') as r:
-                html = (await r.read()).replace('<!-- Filename -->', filename).replace("<!-- Theme -->", theme.lower()).replace('<!-- Size -->', size).replace('<!-- Username -->', StreamBot.me.username)
+                html = await r.read()
+                for key, value in base_replacements.items():
+                    html = html.replace(key, value)
         else:
             async with aiopen(ospath.join(tpath, 'dl.html'), encoding='utf-8') as r:
-                html = (await r.read()).replace('<!-- Filename -->', filename).replace("<!-- Theme -->", theme.lower()).replace('<!-- Size -->', size)
+                html = await r.read()
+                for key, value in base_replacements.items():
+                    html = html.replace(key, value)
     return html

@@ -458,14 +458,12 @@
 <script>
     // ── URL setup ───────────────────────────────────────────────────────────
     const videolink = window.location.href;
-    const urlObj = new URL(videolink);
-    const domainUrl = urlObj.origin;
-    const videoIdWithParams = videolink.split('/').pop();
-    const videoId = videoIdWithParams.split('?')[0];
-    const idParam = new URLSearchParams(window.location.search).get('id');
-    const hashParam = new URLSearchParams(window.location.search).get('hash');
+    const baseUrl = '<!-- BaseUrl -->';
+    const chatId = '<!-- ChatId -->';
+    const msgId = '<!-- MsgId -->';
+    const hash = '<!-- Hash -->';
     const encodedName = encodeURIComponent('<!-- Filename -->');
-    const downloadlink = `${domainUrl}/${videoId}/${encodedName}?id=${idParam}&hash=${hashParam}`;
+    const downloadlink = `${baseUrl}/${chatId}/${encodedName}?id=${msgId}&hash=${hash}`;
 
     // ── Plyr init (clickToPlay OFF — we handle it ourselves) ────────────────
     const player = new Plyr('#player', {

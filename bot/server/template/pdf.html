@@ -208,15 +208,12 @@
 
 <script>
     const pageUrl = window.location.href;
-    const url = new URL(pageUrl);
-    const domainUrl = url.origin;
-    const pathParts = pageUrl.split('/');
-    const videoIdWithParams = pathParts.pop();
-    const videoId = videoIdWithParams.split('?')[0];
-    const idParam = new URLSearchParams(window.location.search).get('id');
-    const hashParam = new URLSearchParams(window.location.search).get('hash');
+    const baseUrl = '<!-- BaseUrl -->';
+    const chatId = '<!-- ChatId -->';
+    const msgId = '<!-- MsgId -->';
+    const hash = '<!-- Hash -->';
     const encodedName = encodeURIComponent('<!-- Filename -->');
-    const downloadlink = `${domainUrl}/${videoId}/${encodedName}?id=${idParam}&hash=${hashParam}`;
+    const downloadlink = `${baseUrl}/${chatId}/${encodedName}?id=${msgId}&hash=${hash}`;
 
     // Load PDF in iframe
     const viewer = document.getElementById('pdfViewer');
