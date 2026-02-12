@@ -61,21 +61,6 @@ async def start(bot: Client, message: Message):
                 [InlineKeyboardButton("Terms", callback_data="terms"), InlineKeyboardButton("Plan", callback_data="plan")]
             ])
         )
-            await message.reply("File not found or I am not admin in that channel.")
-    else:
-        # Welcome Message
-        await message.reply_photo(
-            photo="https://graph.org/file/713ae4e945c71a396417d.jpg",
-            caption=f"👋 Hello {message.from_user.mention},\n\n"
-                    f"I am a **Save Restricted Content Bot**.\n"
-                    f"I can save posts from public/private channels and send them to you.\n\n"
-                    f"Type /help to know more.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Help", callback_data="help"), InlineKeyboardButton("About", callback_data="about")],
-                [InlineKeyboardButton("Terms", callback_data="terms"), InlineKeyboardButton("Plan", callback_data="plan")]
-            ])
-        )
-
 
 @StreamBot.on_message(filters.command('index'))
 async def start(bot: Client, message: Message):
