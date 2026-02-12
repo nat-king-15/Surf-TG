@@ -29,8 +29,8 @@
             --glass-bg: rgba(255, 255, 255, 0.03);
             --glass-border: rgba(255, 255, 255, 0.08);
             --radius-main: 16px;
-            --font-ui: 'Inter', sans-serif;
-            --font-mono: 'JetBrains Mono', monospace;
+            --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Consolas', monospace;
         }
 
         *,
@@ -77,6 +77,7 @@
             gap: 10px;
             font-weight: 700;
             font-size: 1.4rem;
+            /* Match spt-title somewhat */
             letter-spacing: -0.5px;
             background: linear-gradient(135deg, #00F5D4 0%, #7B2CBF 100%);
             -webkit-background-clip: text;
@@ -119,6 +120,7 @@
             padding: 24px;
             width: 100%;
             max-width: 1000px;
+            /* Match test player section max-width */
             margin: 0 auto;
         }
 
@@ -130,6 +132,8 @@
             background: #000;
             position: relative;
             margin-bottom: 32px;
+            /* 16:9 aspect ratio placeholder */
+            min-height: 200px;
         }
 
         .plyr {
@@ -143,10 +147,11 @@
         }
 
         /* ── INFO CARD ────────────────────────────────────────────────────────── */
+        /* Matching .spt-input-section style */
         .info-card {
             width: 100%;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: var(--radius-main);
             padding: 24px;
             margin-bottom: 24px;
@@ -162,6 +167,7 @@
 
         .info-title {
             font-family: var(--font-mono);
+            /* Match spt-input font family logic maybe? or keep mono for filename */
             font-size: 1rem;
             font-weight: 500;
             color: #fff;
@@ -170,12 +176,14 @@
         }
 
         .info-badge {
-            background: rgba(123, 44, 191, 0.2);
-            border: 1px solid rgba(123, 44, 191, 0.4);
-            color: #a855f7;
-            padding: 4px 10px;
+            /* Match .spt-badge */
+            background: rgba(0, 245, 212, 0.15);
+            /* Teal badge like 'Now Playing' */
+            border: 1px solid rgba(0, 245, 212, 0.3);
+            color: #00F5D4;
+            padding: 4px 12px;
             border-radius: 20px;
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             font-weight: 600;
             white-space: nowrap;
             text-transform: uppercase;
@@ -217,11 +225,14 @@
             gap: 10px;
             padding: 14px 20px;
             border-radius: 12px;
-            background: rgba(255, 255, 255, 0.05);
-            /* Secondary style */
+            /* Match spt-btn */
+            /* Match .spt-btn-secondary */
+            background: rgba(255, 255, 255, 0.08);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.7);
+            font-family: inherit;
+            font-size: 0.95rem;
+            /* Match spt-btn */
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
@@ -230,10 +241,10 @@
         }
 
         .action-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.12);
             color: #fff;
             transform: translateY(-2px);
+            /* Match hover effect */
         }
 
         .action-btn:active {
@@ -245,19 +256,20 @@
         }
 
         .action-btn.primary {
-            background: var(--primary-gradient);
+            /* Match .spt-btn-primary */
+            background: linear-gradient(135deg, #00F5D4 0%, #00dfc0 100%);
             border: none;
             color: #0a0a0f;
-            /* Dark text on bright button */
         }
 
         .action-btn.primary:hover {
-            box-shadow: 0 8px 24px rgba(0, 245, 212, 0.25);
-            color: #000;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 245, 212, 0.3);
+            color: #0a0a0f;
         }
 
         .action-btn.primary i {
-            color: #000;
+            color: #0a0a0f;
         }
 
         /* ── FOOTER ───────────────────────────────────────────────────────────── */
@@ -313,7 +325,6 @@
         .seek-indicator .seek-icon {
             font-size: 2.5rem;
             color: var(--primary-color);
-            /* Tinted icon */
         }
 
         .seek-indicator .seek-text {
@@ -356,7 +367,6 @@
             border-top-left-radius: var(--radius-main);
             border-bottom-left-radius: var(--radius-main);
             background: radial-gradient(circle at 0% 50%, rgba(0, 245, 212, 0.1), transparent 70%);
-            /* Teal tint */
         }
 
         .seek-flash.right {
@@ -364,7 +374,6 @@
             border-top-right-radius: var(--radius-main);
             border-bottom-right-radius: var(--radius-main);
             background: radial-gradient(circle at 100% 50%, rgba(0, 245, 212, 0.1), transparent 70%);
-            /* Teal tint */
         }
 
         .seek-flash.animate {
@@ -388,7 +397,6 @@
             left: 50%;
             transform: translateX(-50%);
             background: rgba(123, 44, 191, 0.85);
-            /* Purple accent */
             backdrop-filter: blur(10px);
             color: #fff;
             padding: 8px 24px;
@@ -440,8 +448,68 @@
             opacity: 1;
         }
 
+        /* Loading Overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            transition: opacity 0.5s ease, visibility 0.5s;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            color: var(--primary-color);
+            letter-spacing: 1px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
         /* ── RESPONSIVE ───────────────────────────────────────────────────────── */
-        @media (max-width: 600px) {
+        @media (max-width: 640px) {
+
+            /* Changed from 600px to 640px to match test page */
             .video-container {
                 padding: 16px;
             }
@@ -459,10 +527,10 @@
             }
 
             .navbar-brand span {
+                /* ensure text is visible on mobile if needed, or hide if per design */
                 display: block;
             }
 
-            /* Keep logo text on mobile */
             .actions-grid {
                 grid-template-columns: 1fr 1fr;
                 gap: 8px;
@@ -473,7 +541,6 @@
                 font-size: 0.85rem;
             }
 
-            /* Mobile Plyr controls tweaks */
             .plyr__controls {
                 gap: 5px !important;
                 padding: 10px !important;
@@ -483,7 +550,6 @@
                 display: none !important;
             }
 
-            /* Hide volume slider on mobile */
             .plyr__time {
                 font-size: 12px !important;
             }
@@ -511,6 +577,11 @@
             <video id="player" playsinline controls data-poster="<!-- Poster -->" crossorigin>
                 <source src="#" type="video/mp4" />
             </video>
+            <!-- Loading Overlay -->
+            <div class="loading-overlay" id="loadingOverlay">
+                <div class="spinner"></div>
+                <div class="loading-text">LOADING STREAM...</div>
+            </div>
         </div>
 
         <!-- File Info -->
@@ -610,6 +681,30 @@
                     screen.orientation.unlock();
                 }
             });
+
+            // ── LOADING STATE LOGIC ────────────────────────────────────────────────
+            const loadingOverlay = document.getElementById('loadingOverlay');
+
+            function showLoading() {
+                loadingOverlay.classList.remove('hidden');
+            }
+
+            function hideLoading() {
+                loadingOverlay.classList.add('hidden');
+            }
+
+            // Hide initially if configured (or show if waiting for source)
+            // But usually we start loading immediately.
+
+            player.on('waiting', showLoading);
+            player.on('seeking', showLoading);
+
+            player.on('playing', hideLoading);
+            player.on('canplay', hideLoading);
+            player.on('seeked', hideLoading);
+
+            // Handle HLS events if HLS is used
+            // (HLS events usually trigger player 'waiting'/'playing', but just in case)
         });
 
         // ── GESTURE LOGIC ──────────────────────────────────────────────────────
