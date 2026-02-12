@@ -115,6 +115,20 @@ class Database:
         config = await self.config.find_one({"_id": bot_id})
         return config.get(key) if config is not None else None
 
+    async def update_variable(self, key, value):
+        bot_id = Telegram.BOT_TOKEN.split(":", 1)[0]
+        config = await self.config.find_one({"_id": bot_id})
+        if config is None:
+            # Create config with this key
+            result = await self.config.insert_one(
+                {"_id": bot_id, key: value})
+            return result.inserted_id is not None
+        else:
+            # Update existing config
+            result = await self.config.update_one({"_id": bot_id}, {
+                "$set": {key: value}})
+            return result.modified_count > 0
+
     async def list_tgfiles(self, id, page=1, per_page=50):
         query = {'chat_id': id}
         offset = (int(page) - 1) * per_page
