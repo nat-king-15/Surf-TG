@@ -191,8 +191,8 @@ async def show_plans_callback(bot: Client, query: CallbackQuery):
         text += f"🆓 Free: {Telegram.FREEMIUM_LIMIT} files/day\n💎 Premium: {'Unlimited' if Telegram.PREMIUM_LIMIT == 0 else str(Telegram.PREMIUM_LIMIT)}\n\n"
     buttons = []
     for plan_key, plan_data in plans.items():
-        text += f"• **{plan_data['label']}** — ⭐ {plan_data['price']} Stars\n"
-        buttons.append(InlineKeyboardButton(f"⭐ {plan_data['label']} ({plan_data['price']})", callback_data=f"buy|{plan_key}"))
+        text += f"• **{plan_data['l']}** — ⭐ {plan_data['s']} Stars\n"
+        buttons.append(InlineKeyboardButton(f"⭐ {plan_data['l']} ({plan_data['s']})", callback_data=f"buy|{plan_key}"))
     text += "\n_Pay with Telegram Stars_ ⭐"
     keyboard = [[b] for b in buttons] + [[InlineKeyboardButton("⬅️ Back", callback_data="show_start")]]
     await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
