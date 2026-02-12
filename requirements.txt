@@ -10,3 +10,10 @@ motor
 pymongo
 py-tgcalls
 uvloop
+yt-dlp
+
+mutagen
+Pillow
+tgcrypto
+psutil
+opencv-python-headless
