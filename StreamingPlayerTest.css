@@ -1,0 +1,412 @@
+/* StreamingPlayerTest Page Styles */
+
+.spt-container {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0a0a0f 0%, #14141f 100%);
+    padding: 24px;
+    color: #fff;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.spt-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.spt-title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0 0 8px;
+    background: linear-gradient(135deg, #00F5D4 0%, #7B2CBF 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.spt-subtitle {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 1rem;
+    margin: 0;
+}
+
+/* Input Section */
+.spt-input-section {
+    max-width: 800px;
+    margin: 0 auto 32px;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+}
+
+.spt-input-group {
+    margin-bottom: 20px;
+}
+
+.spt-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.spt-label-icon {
+    font-size: 1.1rem;
+}
+
+.spt-input {
+    width: 100%;
+    padding: 14px 16px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 0.85rem;
+    color: #fff;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.spt-input::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.spt-input:focus {
+    outline: none;
+    border-color: #00F5D4;
+    box-shadow: 0 0 0 3px rgba(0, 245, 212, 0.15);
+}
+
+.spt-hint {
+    display: block;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: 6px;
+}
+
+.spt-hint-success {
+    color: #00F5D4;
+}
+
+/* File Upload */
+.spt-file-upload {
+    position: relative;
+}
+
+.spt-file-input {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.spt-file-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 28px 20px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.spt-file-label:hover {
+    border-color: #00F5D4;
+    background: rgba(0, 245, 212, 0.05);
+}
+
+.spt-file-icon {
+    font-size: 2rem;
+    opacity: 0.8;
+}
+
+.spt-file-text {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-align: center;
+}
+
+/* Divider */
+.spt-divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 24px 0;
+}
+
+.spt-divider::before,
+.spt-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.spt-divider span {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* Badge for file */
+.spt-badge-file {
+    background: rgba(123, 44, 191, 0.2);
+    border-color: rgba(123, 44, 191, 0.4);
+    color: #a855f7;
+}
+
+/* Badge for YouTube */
+.spt-badge-youtube {
+    background: rgba(255, 0, 0, 0.15);
+    border-color: rgba(255, 0, 0, 0.4);
+    color: #ff4444;
+}
+
+/* YouTube Embed */
+.spt-youtube-wrapper {
+    position: relative;
+    padding-bottom: 56.25%;
+    /* 16:9 aspect ratio */
+    height: 0;
+    overflow: hidden;
+}
+
+.spt-youtube-iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 12px;
+}
+
+/* Options */
+.spt-options {
+    margin-bottom: 20px;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+}
+
+.spt-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.spt-checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #00F5D4;
+    cursor: pointer;
+}
+
+.spt-proxy-url {
+    margin-top: 12px;
+    padding-left: 28px;
+}
+
+.spt-label-small {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 6px;
+    display: block;
+}
+
+.spt-input-small {
+    padding: 10px 12px;
+    font-size: 0.8rem;
+}
+
+/* Actions */
+.spt-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.spt-btn {
+    flex: 1;
+    padding: 14px 24px;
+    border: none;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.spt-btn-primary {
+    background: linear-gradient(135deg, #00F5D4 0%, #00dfc0 100%);
+    color: #0a0a0f;
+}
+
+.spt-btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 245, 212, 0.3);
+}
+
+.spt-btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.spt-btn-secondary {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.spt-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+/* Player Section */
+.spt-player-section {
+    max-width: 1000px;
+    margin: 0 auto 32px;
+}
+
+.spt-player-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.spt-badge {
+    padding: 4px 12px;
+    background: rgba(0, 245, 212, 0.15);
+    border: 1px solid rgba(0, 245, 212, 0.3);
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #00F5D4;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.spt-url-preview {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.spt-player-wrapper {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Instructions */
+.spt-instructions {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+}
+
+.spt-instructions h3 {
+    font-size: 1.1rem;
+    margin: 0 0 16px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.spt-instructions ol {
+    margin: 0 0 20px;
+    padding-left: 24px;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.8;
+}
+
+.spt-example {
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    margin-bottom: 16px;
+}
+
+.spt-example h4 {
+    font-size: 0.9rem;
+    margin: 0 0 10px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.spt-example pre {
+    margin: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: #00F5D4;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.spt-proxy-info {
+    padding: 16px;
+    background: rgba(123, 44, 191, 0.1);
+    border: 1px solid rgba(123, 44, 191, 0.2);
+    border-radius: 10px;
+}
+
+.spt-proxy-info h4 {
+    font-size: 0.9rem;
+    margin: 0 0 10px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.spt-proxy-info code {
+    display: block;
+    padding: 10px 14px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: #7B2CBF;
+    margin-bottom: 10px;
+}
+
+.spt-proxy-info p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .spt-container {
+        padding: 16px;
+    }
+
+    .spt-title {
+        font-size: 1.5rem;
+    }
+
+    .spt-input-section {
+        padding: 16px;
+    }
+
+    .spt-actions {
+        flex-direction: column;
+    }
+}
