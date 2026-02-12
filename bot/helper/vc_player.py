@@ -91,8 +91,19 @@ async def start_vc_stream(chat_id: int, stream_url: str, title: str = "",
             "duration": 0,
         }
         
-        # Detect duration in background (non-blocking)
-        asyncio.create_task(_detect_duration(int(chat_id), stream_url))
+        # Detect duration (blocking with timeout to ensure UI is correct)
+        # We wait up to 5 seconds for duration to be found. 
+        # If it takes longer, we proceed with 0 and let background update fix it later (though UI might be wrong initially).
+        try:
+            duration = await asyncio.wait_for(_detect_duration_internal(int(chat_id), stream_url), timeout=5.0)
+            if duration:
+                active_streams[int(chat_id)]["duration"] = duration
+        except asyncio.TimeoutError:
+             LOGGER.warning(f"Duration detection timed out for {chat_id}")
+             # Start in background if timed out
+             asyncio.create_task(_detect_duration(int(chat_id), stream_url))
+        except Exception as e:
+            LOGGER.error(f"Error awaiting duration: {e}")
         
         # Update VC title in background (non-blocking)
         asyncio.create_task(_update_vc_title(int(chat_id), title))
@@ -255,15 +266,23 @@ async def get_media_duration(url: str) -> int:
         return 0
 
 
-async def _detect_duration(chat_id: int, url: str):
-    """Background task to detect duration and update active_streams."""
+async def _detect_duration_internal(chat_id: int, url: str) -> int:
+    """Detect duration and return it."""
     try:
         duration = await get_media_duration(url)
-        if duration > 0 and int(chat_id) in active_streams:
-            active_streams[int(chat_id)]["duration"] = duration
-            LOGGER.info(f"Duration updated for {chat_id}: {duration}s")
+        if duration > 0:
+            LOGGER.info(f"Duration detected: {duration}s")
+            return duration
     except Exception as e:
         LOGGER.warning(f"Duration detection failed: {e}")
+    return 0
+
+async def _detect_duration(chat_id: int, url: str):
+    """Background task to detect duration and update active_streams."""
+    duration = await _detect_duration_internal(chat_id, url)
+    if duration > 0 and int(chat_id) in active_streams:
+        active_streams[int(chat_id)]["duration"] = duration
+        LOGGER.info(f"Duration updated for {chat_id}: {duration}s")
 
 
 async def _update_vc_title(chat_id: int, title: str):
