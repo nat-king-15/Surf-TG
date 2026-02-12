@@ -52,6 +52,9 @@ def _settings_keyboard():
             InlineKeyboardButton("🖼️ Set Thumbnail", callback_data="st_thumb"),
             InlineKeyboardButton("❌ Remove Thumbnail", callback_data="st_remthumb"),
         ],
+        [
+            InlineKeyboardButton("⬅️ Back", callback_data="show_start"),
+        ],
     ])
 
 
@@ -112,6 +115,16 @@ async def settings_callback(bot: Client, query: CallbackQuery):
     """Handle settings inline button callbacks."""
     user_id = query.from_user.id
     action = query.data
+
+    # ─── Show settings menu ───
+    if action == "st_menu":
+        await query.message.edit_text(
+            "⚙️ **Customize settings for your files...**",
+            reply_markup=_settings_keyboard(),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        await query.answer()
+        return
 
     # ─── Prompt-based actions (need user input) ───
     if action in PROMPT_ACTIONS:

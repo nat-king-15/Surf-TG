@@ -143,7 +143,7 @@ async def help_command(bot: Client, message: Message):
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("💎 Plans", callback_data="show_plans"),
-             InlineKeyboardButton("⚙️ Settings", callback_data="sett|back")],
+             InlineKeyboardButton("⚙️ Settings", callback_data="st_menu")],
         ]),
     )
 
