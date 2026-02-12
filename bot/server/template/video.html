@@ -361,101 +361,56 @@
             border-radius: 0;
         }
 
-        /* Mobile Layout: 2 Rows for Controls */
+        /* Mobile Layout: Responsive Single Row */
         @media (max-width: 480px) {
             .plyr__controls {
-                flex-wrap: wrap !important;
-                padding-top: 25px !important;
-                /* Add space at top for the progress bar which we will absolute position or just flow */
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+                overflow-y: hidden !important;
                 justify-content: flex-start !important;
+                padding: 10px 5px !important;
+                gap: 5px !important;
             }
 
-            /* Row 1: Progress Bar & Duration */
-            .plyr__progress__container,
-            .plyr__time {
-                width: 100% !important;
-                flex: 0 0 100% !important;
-                order: 1 !important;
-                margin-left: 0 !important;
-                padding-bottom: 5px !important;
-            }
-
+            /* Make progress bar flexible but visible */
             .plyr__progress__container {
-                margin-bottom: 5px !important;
+                flex: 1 1 auto !important;
+                min-width: 80px !important;
+                order: 3 !important;
+                /* Play(1), Time(2), Progress(3) ... */
             }
 
-            /* Row 2: All Buttons & Volume */
-            .plyr__controls__item {
-                order: 2 !important;
-                flex: 0 0 auto !important;
-            }
-
-            /* Specific tweaks to make Row 2 look good */
-            .plyr__volume {
-                width: auto !important;
-                min-width: 0 !important;
-            }
-
-            /* Hide Duration from Row 2 if it duplicates, but Plyr splits current/duration. 
-               Let's try to keep them together if possible, or just let them flow.
-               Optimized approach: 
-               Row 1: Progress Bar
-               Row 2: Time | Controls 
-               
-               User asked: "first row me video ka duration aur progress bar" 
-            */
-
-            .plyr__progress {
+            /* Ensure Play and Time are first */
+            .plyr__controls__item[data-plyr="play"] {
                 order: 1 !important;
-                flex: 0 0 100% !important;
-                margin-bottom: 10px !important;
             }
 
             .plyr__time {
-                order: 1 !important;
-                /* If we want duration specifically on row 1, it might crowd the progress bar if inline.
-                    Let's try: Row 1 = Time + Progress. 
-                    Actually, standar mobile players often have:
-                    Row 1: Time -- Progress -- Time
-                    Row 2: Controls
-                    
-                    But user said: "first row me video ka duration aur progress bar"
-                 */
+                order: 2 !important;
+                font-size: 12px !important;
+                padding: 0 5px !important;
             }
 
-            /* 
-               Let's try this specific layout based on request:
-               Container: flex-wrap
-               
-               Item 1: Time (Current / Duration) -> Order 1
-               Item 2: Progress Bar -> Order 1 (Flex-grow)
-               
-               Item 3..N: Buttons -> Order 2
+            /* Volume and others after progress */
+            .plyr__volume {
+                order: 4 !important;
+                min-width: auto !important;
+                width: auto !important;
+            }
+
+            /* Hide volume slider on mobile to save space, just keep mute button if needed, 
+               or let Plyr handle it (Plyr usually hides volume slider on mobile). 
             */
 
-            .plyr__controls>.plyr__time,
-            .plyr__progress {
-                order: 1 !important;
-                margin-bottom: 8px !important;
+            /* Settings/Fullscreen at the end */
+            .plyr__menu,
+            .plyr__controls__item[data-plyr="fullscreen"] {
+                order: 10 !important;
             }
 
-            /* Make progress take available space in Row 1 */
-            .plyr__progress {
-                flex: 1 1 auto !important;
-                min-width: 100px !important;
-                /* Ensure visibility */
-            }
-
-            /* Make controls take Row 2 */
-            .plyr__controls>button,
-            .plyr__volume,
-            .plyr__menu {
-                order: 2 !important;
-            }
-
-            /* Center controls in Row 2 if desired, or space-between */
-            .plyr__controls {
-                align-content: center !important;
+            /* General button sizing */
+            .plyr__controls__item.plyr__control {
+                padding: 5px !important;
             }
         }
     </style>
@@ -463,14 +418,10 @@
 
 <body>
     <nav class="navbar">
-        <a href="/">
-            <!-- Keeping the logo source for now as requested by user to only change name, unless they provided a new logo. 
-                 User said "project me app ka name Surf-Tg ko change kr do". 
-                 I will assume the logo image might still be appropriate or I can't change it without a new URL.
-                 But I will change the alt text and visible text. 
-            -->
-            <img src="https://cdn.jsdelivr.net/gh/weebzone/weebzone/data/Surf-TG/src/logo%20(2).png"
-                alt="Natking-TG Logo">
+        <a href="/"
+            style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.2rem; color: #fff;">
+            <i class="bi bi-send-fill" style="color: #00d4ff;"></i>
+            <span>NATKING-TG</span>
         </a>
         <form id="signoutForm" action="/logout" method="post">
             <button type="submit" class="btn-logout"><i class="bi bi-box-arrow-left"></i> Logout</button>
