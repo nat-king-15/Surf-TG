@@ -404,6 +404,16 @@ async def file_receive_handler(bot: Client, message: Message):
 
 @StreamBot.on_message(filters.command(['createindex', 'index']))
 async def create_index(bot: Client, message: Message):
+    # Check Premium status
+    if not await db.is_premium(message.from_user.id):
+        await message.reply(
+            "💎 **Premium Only!**\n\n"
+            "Creating an index is a premium feature.\n"
+            "Use /plans to upgrade.",
+            parse_mode=ParseMode.MARKDOWN
+        )
+        return
+
     from bot.telegram import UserBot
     
     channel_id = message.chat.id
