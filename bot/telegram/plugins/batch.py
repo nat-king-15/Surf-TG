@@ -157,7 +157,6 @@ async def get_user_client(uid: int) -> Optional[Client]:
             api_hash=Telegram.API_HASH,
             session_string=ss,
             in_memory=True,
-            no_updates=True,
         )
         await client.start()
         # Refresh dialogs so private chats resolve
@@ -299,6 +298,19 @@ async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, ch
             else:
                 file_name = f"{time.time()}"
 
+            # Re-fetch message right before download to get a fresh file reference
+            try:
+                fresh_msg = await uclient.get_messages(msg.chat.id, msg.id)
+                if fresh_msg and not getattr(fresh_msg, "empty", False):
+                    msg = fresh_msg
+            except Exception:
+                try:
+                    fresh_msg = await bot_client.get_messages(msg.chat.id, msg.id)
+                    if fresh_msg and not getattr(fresh_msg, "empty", False):
+                        msg = fresh_msg
+                except Exception:
+                    pass
+
             try:
                 downloaded = await uclient.download_media(
                     msg,
@@ -307,16 +319,13 @@ async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, ch
                     progress_args=(bot_client, int(dest_chat_id), prog_msg.id, start_time),
                 )
             except FileReferenceExpired:
-                # Re-fetch message to get a fresh file reference
-                LOGGER.info(f"File reference expired for msg {msg.id}, re-fetching...")
+                # Final fallback: re-fetch with dialogs refresh and retry
+                LOGGER.info(f"File reference expired for msg {msg.id}, refreshing dialogs...")
                 try:
+                    async for _ in uclient.get_dialogs(limit=100): pass
                     msg = await uclient.get_messages(msg.chat.id, msg.id)
                 except Exception:
-                    try:
-                        msg = await bot_client.get_messages(msg.chat.id, msg.id)
-                    except Exception:
-                        pass
-                start_time = time.time()
+                    pass
                 downloaded = await uclient.download_media(
                     msg,
                     file_name=file_name,
@@ -393,7 +402,7 @@ async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, ch
                         reply_to_message_id=reply_to,
                     )
             except Exception as e:
-                await prog_msg.edit_text(f"Upload failed: {str(e)[:30]}")
+                await prog_msg.edit_text(f"Upload failed: {str(e)[:80]}")
                 if os.path.exists(downloaded):
                     os.remove(downloaded)
                 return "Failed."
