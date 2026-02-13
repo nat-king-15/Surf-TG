@@ -52,6 +52,9 @@ def _settings_keyboard():
             InlineKeyboardButton("🖼️ Set Thumbnail", callback_data="st_thumb"),
             InlineKeyboardButton("❌ Remove Thumbnail", callback_data="st_remthumb"),
         ],
+        [
+            InlineKeyboardButton("⬅️ Back", callback_data="show_start"),
+        ],
     ])
 
 
@@ -159,7 +162,7 @@ async def settings_callback(bot: Client, query: CallbackQuery):
 # Handle settings text input
 # ═══════════════════════════════════════════════════════════════════
 
-@StreamBot.on_message(filters.private & settings_in_progress & ~filters.command(["cancel", "settings"]))
+@StreamBot.on_message(filters.private & settings_in_progress & ~filters.command(["cancel", "settings"]), group=-1)
 async def handle_settings_input(bot: Client, message: Message):
     """Handle multi-step settings conversation."""
     user_id = message.from_user.id
@@ -244,7 +247,7 @@ async def handle_settings_input(bot: Client, message: Message):
 # /cancel - Cancel settings flow
 # ═══════════════════════════════════════════════════════════════════
 
-@StreamBot.on_message(filters.command("cancel") & filters.private & settings_in_progress)
+@StreamBot.on_message(filters.command("cancel") & filters.private & settings_in_progress, group=-1)
 async def cancel_settings(bot: Client, message: Message):
     """Cancel the active settings flow."""
     clear_user_step(message.from_user.id)

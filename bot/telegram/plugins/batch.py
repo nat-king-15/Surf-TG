@@ -25,7 +25,7 @@ from bot.utils.func import (
     get_video_metadata,
     generate_thumbnail,
 )
-from bot.utils.custom_filters import login_in_progress
+from bot.utils.custom_filters import login_in_progress, settings_in_progress, get_user_step
 
 LOGGER = logging.getLogger(__name__)
 db = Database()
@@ -443,6 +443,13 @@ async def cancel_batch(bot: Client, message: Message):
     """Cancel active batch or conversation."""
     uid = message.from_user.id
 
+    # Don't handle cancel if user is in settings/login flow — let those plugins handle it
+    step_info = get_user_step(uid)
+    if step_info and step_info["step"].startswith("settings_"):
+        return  # Let settings plugin handle it
+    if step_info and step_info["step"].startswith("login_"):
+        return  # Let login plugin handle it
+
     if is_user_active(uid):
         ok = await request_cancel(uid)
         if ok:
@@ -471,6 +478,7 @@ EXCLUDED_COMMANDS = [
 @StreamBot.on_message(
     filters.text & filters.private
     & ~login_in_progress
+    & ~settings_in_progress
     & ~filters.command(EXCLUDED_COMMANDS)
 )
 async def batch_text_handler(bot: Client, message: Message):
