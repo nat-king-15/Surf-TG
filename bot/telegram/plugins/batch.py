@@ -223,7 +223,7 @@ def sanitize_filename(filename: str) -> str:
     return re.sub(r'[<>:"/\\|?*\']', "_", filename).strip(" .")[:255]
 
 
-async def progress(current, total, bot, chat_id, msg_id, start_time):
+async def progress(current, total, bot, chat_id, msg_id, start_time, batch_current=0, batch_total=0):
     """Progress callback for downloads/uploads."""
     pct = current / total * 100
     interval = 10 if total >= 100 * 1024**2 else 20 if total >= 50 * 1024**2 else 30
@@ -236,10 +236,16 @@ async def progress(current, total, bot, chat_id, msg_id, start_time):
         elapsed = time.time() - start_time
         speed = current / elapsed / 1024**2 if elapsed > 0 else 0
         eta = time.strftime("%M:%S", time.gmtime((total - current) / (speed * 1024**2))) if speed > 0 else "00:00"
+        
+        batch_text = ""
+        if batch_total > 1:
+            batch_text = f"📦 **Batch**: {batch_current}/{batch_total}\n"
+
         try:
             await bot.edit_message_text(
                 chat_id, msg_id,
                 f"__**Processing...**__\n\n{bar}\n\n"
+                f"{batch_text}"
                 f"⚡ **Completed**: {c_mb:.2f} MB / {t_mb:.2f} MB\n"
                 f"📊 **Done**: {pct:.2f}%\n"
                 f"🚀 **Speed**: {speed:.2f} MB/s\n"
@@ -255,7 +261,7 @@ async def progress(current, total, bot, chat_id, msg_id, start_time):
 # Process a single fetched message → download + upload
 # ═══════════════════════════════════════════════════════════════════
 
-async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, chat_ident):
+async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, chat_ident, batch_current=0, batch_total=0):
     """Download a message and re-upload it to the destination chat."""
     try:
         settings = await db.get_settings(uid)
@@ -295,8 +301,12 @@ async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, ch
                 file_name = sanitize_filename(msg.audio.file_name)
             elif msg.document and msg.document.file_name:
                 file_name = sanitize_filename(msg.document.file_name)
+            elif msg.photo:
+                file_name = f"{time.time()}.jpg"
             else:
                 file_name = f"{time.time()}"
+                
+            progress_args = (bot_client, int(dest_chat_id), prog_msg.id, start_time, batch_current, batch_total)
 
             # Re-fetch message right before download to get a fresh file reference
             try:
@@ -316,7 +326,7 @@ async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, ch
                     msg,
                     file_name=file_name,
                     progress=progress,
-                    progress_args=(bot_client, int(dest_chat_id), prog_msg.id, start_time),
+                    progress_args=progress_args,
                 )
             except FileReferenceExpired:
                 # Final fallback: re-fetch with dialogs refresh and retry
@@ -330,7 +340,7 @@ async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, ch
                     msg,
                     file_name=file_name,
                     progress=progress,
-                    progress_args=(bot_client, int(dest_chat_id), prog_msg.id, start_time),
+                    progress_args=progress_args,
                 )
 
             if not downloaded:
@@ -366,13 +376,13 @@ async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, ch
                         target_chat, video=downloaded, caption=final_text,
                         thumb=th, width=meta["width"], height=meta["height"],
                         duration=meta["duration"],
-                        progress=progress, progress_args=(bot_client, int(dest_chat_id), prog_msg.id, start_time),
+                        progress=progress, progress_args=progress_args,
                         reply_to_message_id=reply_to,
                     )
                 elif msg.audio or (msg.document and ext in audio_exts):
                     await bot_client.send_audio(
                         target_chat, audio=downloaded, caption=final_text, thumb=thumb,
-                        progress=progress, progress_args=(bot_client, int(dest_chat_id), prog_msg.id, start_time),
+                        progress=progress, progress_args=progress_args,
                         reply_to_message_id=reply_to,
                     )
                 elif msg.photo:
@@ -393,7 +403,7 @@ async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, ch
                 elif msg.document:
                     await bot_client.send_document(
                         target_chat, document=downloaded, caption=final_text, thumb=thumb,
-                        progress=progress, progress_args=(bot_client, int(dest_chat_id), prog_msg.id, start_time),
+                        progress=progress, progress_args=progress_args,
                         reply_to_message_id=reply_to,
                     )
                 else:
@@ -412,19 +422,19 @@ async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, ch
                             target_chat, video=downloaded, caption=final_text,
                             thumb=th, width=meta["width"], height=meta["height"],
                             duration=meta["duration"],
-                            progress=progress, progress_args=(bot_client, int(dest_chat_id), prog_msg.id, start_time),
+                            progress=progress, progress_args=progress_args,
                         )
                     elif msg.audio or (msg.document and ext in audio_exts):
                         await bot_client.send_audio(
                             target_chat, audio=downloaded, caption=final_text, thumb=thumb,
-                            progress=progress, progress_args=(bot_client, int(dest_chat_id), prog_msg.id, start_time),
+                            progress=progress, progress_args=progress_args,
                         )
                     elif msg.photo:
                         await bot_client.send_photo(target_chat, photo=downloaded, caption=final_text)
                     elif msg.document:
                         await bot_client.send_document(
                             target_chat, document=downloaded, caption=final_text, thumb=thumb,
-                            progress=progress, progress_args=(bot_client, int(dest_chat_id), prog_msg.id, start_time),
+                            progress=progress, progress_args=progress_args,
                         )
                     else:
                         await bot_client.send_document(target_chat, document=downloaded, caption=final_text)
@@ -646,7 +656,7 @@ async def batch_text_handler(bot: Client, message: Message):
                 try:
                     msg = await get_msg(ubot, uclient, chat_id, mid, lt)
                     if msg:
-                        res = await process_msg(ubot, uclient, msg, str(message.chat.id), lt, uid, chat_id)
+                        res = await process_msg(ubot, uclient, msg, str(message.chat.id), lt, uid, chat_id, j+1, count)
                         if "Done" in res or "Sent" in res:
                             success += 1
                             await db.increment_usage(uid)
