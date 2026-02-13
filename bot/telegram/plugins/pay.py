@@ -1,30 +1,25 @@
 """
-Payment plugin: Telegram Stars payment integration for premium subscriptions.
-Commands: /plans (or /pay) — show premium plans, handle invoice + payment callbacks.
-Matches source bot's pay.py format exactly.
+Payment plugin: Manual UPI payment + Dynamic Plan Management.
+Commands: 
+- /plans (or /pay) — show premium plans & payment instructions
+- /addplan, /delplan, /listplans — Owner only
 """
 import logging
-from datetime import timedelta
 from pyrogram import filters, Client
 from pyrogram.types import (
     Message,
-    CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    LabeledPrice,
-    PreCheckoutQuery,
+    CallbackQuery,
 )
 from pyrogram.enums.parse_mode import ParseMode
 
 from bot.telegram import StreamBot
 from bot.config import Telegram
 from bot.helper.database import Database
-from bot.utils.func import format_expiry
 
 LOGGER = logging.getLogger(__name__)
 db = Database()
-P0 = Telegram.PREMIUM_PLANS  # shorthand matching source
-
 
 # ═══════════════════════════════════════════════════════════════════
 # /plans (or /pay) — Display premium plans
@@ -32,119 +27,126 @@ P0 = Telegram.PREMIUM_PLANS  # shorthand matching source
 
 @StreamBot.on_message(filters.command(["plans", "pay"]) & filters.private)
 async def plans_handler(bot: Client, message: Message):
-    """Show available premium subscription plans."""
+    """Show available premium subscription plans from DB."""
+    # Fetch plans from DB
+    plans = await db.get_plans()
+    
+    # Fallback to Config if DB is empty (migration aid)
+    if not plans and hasattr(Telegram, 'PREMIUM_PLANS'):
+        # Convert config plans to DB format for display
+        plans = {}
+        for k, v in Telegram.PREMIUM_PLANS.items():
+             plans[k] = {
+                 "l": v["l"],
+                 "du": v["du"],
+                 "u": v["u"],
+                 "p": f"{v['s']} Stars" # Fallback price
+             }
+
+    if not plans:
+        await message.reply_text("❌ No plans available at the moment.")
+        return
+
+    # Build text
+    text = "💎 **Premium Plans**\n━━━━━━━━━━━━━━━━━━\n\n"
+    
+    for key, plan in plans.items():
+        text += f"📌 **{plan['l']}**\n"
+        text += f"   ⏳ Duration: {plan['du']} {plan['u']}\n"
+        text += f"   💰 Price: {plan['p']}\n\n"
+
+    text += (
+        "💳 **Payment Method**\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        "Pay via UPI to:\n"
+        f"`{Telegram.OWNER_ID}@upi` (Replace with actual UPI)\n\n" # Placeholder, owner should update message or we add config
+        "**After Payment:**\n"
+        "1. Take a screenshot of the payment.\n"
+        f"2. Send it to the Owner: [Click Here](tg://user?id={Telegram.OWNER_ID})\n"
+        "3. Wait for activation.\n\n"
+        "⚠️ **Note:** This is a manual process. Please be patient."
+    )
+    
+    # We can add a direct link button to owner
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton(
-            f"⭐ {P0['d']['l']} - {P0['d']['s']} Star",
-            callback_data="p_d",
-        )],
-        [InlineKeyboardButton(
-            f"⭐ {P0['w']['l']} - {P0['w']['s']} Stars",
-            callback_data="p_w",
-        )],
-        [InlineKeyboardButton(
-            f"⭐ {P0['m']['l']} - {P0['m']['s']} Stars",
-            callback_data="p_m",
-        )],
+        [InlineKeyboardButton("👤 Contact Owner", user_id=Telegram.OWNER_ID)]
     ])
 
-    text = (
-        "💎 **Choose your premium plan:**\n\n"
-        f"📅 **{P0['d']['l']}** — {P0['d']['s']} Star\n"
-        f"🗓️ **{P0['w']['l']}** — {P0['w']['s']} Stars\n"
-        f"📆 **{P0['m']['l']}** — {P0['m']['s']} Stars\n\n"
-        "Select a plan below to continue ⤵️"
-    )
-    await message.reply_text(text, reply_markup=kb)
+    await message.reply_text(text, reply_markup=kb, disable_web_page_preview=True)
 
 
 # ═══════════════════════════════════════════════════════════════════
-# Callback → Send invoice
+# Owner Commands: Plan Management
 # ═══════════════════════════════════════════════════════════════════
 
-@StreamBot.on_callback_query(filters.regex(r"^p_"))
-async def send_invoice(bot: Client, query: CallbackQuery):
-    """Send a Telegram Stars invoice for the chosen plan."""
-    plan_key = query.data.split("_")[1]  # d, w, or m
-    plan = P0.get(plan_key)
-    if not plan:
-        await query.answer("❌ Invalid plan.", show_alert=True)
-        return
-
+@StreamBot.on_message(filters.command("addplan") & filters.user(Telegram.OWNER_ID))
+async def add_plan_command(bot: Client, message: Message):
+    """
+    Add/Update a plan.
+    Usage: /addplan <key> <duration> <unit> <price> <label>
+    Example: /addplan d 1 days ₹10 Daily
+    """
     try:
-        await bot.send_invoice(
-            chat_id=query.from_user.id,
-            title=f"Premium {plan['l']}",
-            description=f"{plan['du']} {plan['u']} subscription",
-            payload=f"{plan_key}_{query.from_user.id}",
-            currency="XTR",
-            prices=[LabeledPrice(label=f"Premium {plan['l']}", amount=plan["s"])],
-        )
-        await query.answer("Invoice sent 💫")
+        args = message.text.split(None, 5)
+        if len(args) < 6:
+            await message.reply_text(
+                "❌ Usage: `/addplan <key> <duration> <unit> <price> <label>`\n\n"
+                "Example: `/addplan d 1 days 10Rs Daily`"
+            )
+            return
+
+        key = args[1]
+        duration = int(args[2])
+        unit = args[3]
+        price = args[4]
+        label = args[5]
+
+        # Validate unit
+        valid_units = ["min", "hours", "days", "weeks", "month", "year"]
+        if unit not in valid_units:
+             await message.reply_text(f"❌ Invalid unit. Use: {', '.join(valid_units)}")
+             return
+
+        await db.add_plan(key, duration, unit, price, label)
+        await message.reply_text(f"✅ Plan `{label}` ({key}) added/updated!")
     except Exception as e:
-        LOGGER.error(f"Invoice error: {e}")
-        await query.answer(f"Err: {e}", show_alert=True)
+        await message.reply_text(f"❌ Error: {e}")
 
 
-# ═══════════════════════════════════════════════════════════════════
-# Pre-checkout — always approve
-# ═══════════════════════════════════════════════════════════════════
+@StreamBot.on_message(filters.command("delplan") & filters.user(Telegram.OWNER_ID))
+async def del_plan_command(bot: Client, message: Message):
+    """
+    Delete a plan.
+    Usage: /delplan <key>
+    """
+    try:
+        if len(message.command) < 2:
+            await message.reply_text("❌ Usage: `/delplan <key>`")
+            return
+        
+        key = message.command[1]
+        if await db.delete_plan(key):
+            await message.reply_text(f"✅ Plan `{key}` deleted.")
+        else:
+            await message.reply_text(f"❌ Plan `{key}` not found.")
+    except Exception as e:
+         await message.reply_text(f"❌ Error: {e}")
 
-@StreamBot.on_pre_checkout_query()
-async def pre_checkout(bot: Client, query: PreCheckoutQuery):
-    """Approve all pre-checkout queries."""
-    await query.answer(ok=True)
 
-
-# ═══════════════════════════════════════════════════════════════════
-# Successful payment → Grant premium
-# ═══════════════════════════════════════════════════════════════════
-
-@StreamBot.on_message(filters.successful_payment)
-async def successful_payment(bot: Client, message: Message):
-    """Process successful payment and grant premium."""
-    payment = message.successful_payment
-    user_id = message.from_user.id
-    plan_key = payment.invoice_payload.split("_")[0]
-    plan = P0.get(plan_key)
-
-    if not plan:
-        await message.reply_text("⚠️ Payment received but plan not found.")
+@StreamBot.on_message(filters.command("listplans") & filters.user(Telegram.OWNER_ID))
+async def list_plans_command(bot: Client, message: Message):
+    """List all configured plans (Raw)."""
+    plans = await db.get_plans()
+    if not plans:
+        await message.reply_text("📂 No plans in database.")
         return
-
-    success, result = await db.add_premium(user_id, plan["du"], plan["u"])
-
-    if success:
-        expiry_str = format_expiry(result)
-        await message.reply_text(
-            f"✅ **Paid!**\n\n"
-            f"💎 Premium {plan['l']} active!\n"
-            f"⭐ {payment.total_amount}\n"
-            f"⏰ Till: {expiry_str} IST\n"
-            f"🔖 Txn: `{payment.telegram_payment_charge_id}`",
-            parse_mode=ParseMode.MARKDOWN,
-        )
-        # Notify owner
-        try:
-            await bot.send_message(
-                Telegram.OWNER_ID,
-                f"💰 User {user_id} just purchased Premium {plan['l']}, "
-                f"txn id is {payment.telegram_payment_charge_id}.",
-            )
-        except Exception:
-            pass
-    else:
-        await message.reply_text(
-            f"⚠️ Paid but premium activation failed.\n"
-            f"Txn `{payment.telegram_payment_charge_id}`",
-            parse_mode=ParseMode.MARKDOWN,
-        )
-        # Notify owner about issue
-        try:
-            await bot.send_message(
-                Telegram.OWNER_ID,
-                f"⚠️ Issue!\nUser {user_id}\nPlan {plan['l']}\n"
-                f"Txn {payment.telegram_payment_charge_id}\nErr {result}",
-            )
-        except Exception:
-            pass
+        
+    text = "📋 **Configured Plans**\n\n"
+    for key, val in plans.items():
+        text += f"🆔 `{key}`\n"
+        text += f"🏷️ {val['l']}\n"
+        text += f"⏳ {val['du']} {val['u']}\n"
+        text += f"💰 {val['p']}\n"
+        text += "──────────────\n"
+    
+    await message.reply_text(text)

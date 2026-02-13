@@ -623,3 +623,38 @@ class Database:
             if await self.is_premium(user_id):
                 return True
         return False
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Plan Management (Dynamic)
+    # ═══════════════════════════════════════════════════════════════════
+
+    async def get_plans(self) -> dict:
+        """Get all available plans. Returns {key: plan_data}."""
+        cursor = self.db.plans.find({})
+        plans = {}
+        async for plan in cursor:
+            plans[plan["_id"]] = {
+                "l": plan["label"],
+                "du": plan["duration"],
+                "u": plan["unit"],
+                "p": plan["price"],  # Price in text/INR
+            }
+        return plans
+
+    async def add_plan(self, key: str, duration: int, unit: str, price: str, label: str):
+        """Add or update a plan."""
+        await self.db.plans.update_one(
+            {"_id": key},
+            {"$set": {
+                "duration": duration,
+                "unit": unit,
+                "price": price,
+                "label": label
+            }},
+            upsert=True
+        )
+
+    async def delete_plan(self, key: str):
+        """Delete a plan."""
+        result = await self.db.plans.delete_one({"_id": key})
+        return result.deleted_count > 0
