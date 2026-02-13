@@ -406,11 +406,14 @@ async def file_receive_handler(bot: Client, message: Message):
 @StreamBot.on_message(filters.command(['createindex', 'index']))
 async def create_index(bot: Client, message: Message):
     # Check Premium status
-    if not await db.is_premium(message.from_user.id):
+    user = message.from_user or message.sender_chat
+    user_id = user.id
+    if not await db.is_premium(user_id):
         await message.reply(
-            "💎 **Premium Only!**\n\n"
-            "Creating an index is a premium feature.\n"
-            "Use /plans to upgrade.",
+            f"💎 **Premium Only!**\n\n"
+            f"Creating an index is a premium feature.\n"
+            f"User/Channel ID: `{user_id}`\n"
+            f"Use /plans to upgrade.",
             parse_mode=ParseMode.MARKDOWN
         )
         return
@@ -761,11 +764,14 @@ async def _build_folder_keyboard(folder_id, channel_id, page=1):
 async def browse_command(bot: Client, message: Message):
     """Show channels to browse as inline keyboard buttons."""
     # Check Premium status
-    if not await db.is_premium(message.from_user.id):
+    user = message.from_user or message.sender_chat
+    user_id = user.id
+    if not await db.is_premium(user_id):
         await message.reply(
-            "💎 **Premium Only!**\n\n"
-            "Browsing channels is a premium feature.\n"
-            "Use /plans to upgrade.",
+            f"💎 **Premium Only!**\n\n"
+            f"Browsing channels is a premium feature.\n"
+            f"User/Channel ID: `{user_id}`\n"
+            f"Use /plans to upgrade.",
             parse_mode=ParseMode.MARKDOWN
         )
         return
