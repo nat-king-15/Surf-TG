@@ -436,10 +436,10 @@ async def check_access_and_get_target(bot: Client, message: Message):
 
     # Scenario B: Channel/Group execution
     else:
-        # 1. Anonymous Admin (sender_chat == chat_id)
-        # We allow this WITHOUT premium check because we can't identify the user, 
-        # but they are definitely an admin of the channel.
-        if message.sender_chat and message.sender_chat.id == message.chat.id:
+        # 1. Anonymous Users (Admin or Send As Channel)
+        # We cannot verify premium status for anonymous users (no user_id).
+        # We allow them to proceed to avoid breaking functionality for admins.
+        if message.sender_chat:
             return message.chat.id, None
 
         # 2. Regular User (with ID)
@@ -449,7 +449,8 @@ async def check_access_and_get_target(bot: Client, message: Message):
             return message.chat.id, None
             
         # Fallback for weird states
-        return None, "❌ Cannot verify permissions."
+        debug_info = f"UID: {user_id}, Chat: {message.chat.id}, Sender: {message.sender_chat.id if message.sender_chat else 'None'}"
+        return None, f"❌ Cannot verify permissions.\n\nDebug: `{debug_info}`"
 
 
 @StreamBot.on_message(filters.command(['createindex', 'index']))
