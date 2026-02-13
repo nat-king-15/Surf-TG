@@ -367,12 +367,13 @@ async def start(bot: Client, message: Message):
 )
 async def file_receive_handler(bot: Client, message: Message):
     channel_id = message.chat.id
-    AUTH_CHANNEL = await db.get_variable('auth_channel')
-    if AUTH_CHANNEL is None or AUTH_CHANNEL.strip() == '':
-        AUTH_CHANNEL = Telegram.AUTH_CHANNEL
-    else:
-        AUTH_CHANNEL = [channel.strip() for channel in AUTH_CHANNEL.split(",")]
-    if str(channel_id) in AUTH_CHANNEL:
+    # Remove Auth_Channel check - index any file if processing enabled?
+    # Actually user wants "jis bhi chennel me ye cmd premium user dvara chalaya jayega us channel ki indexing honi chanhiye"
+    # This implies file_receive should also work?
+    # But usually file_receive handler saves ALL files.
+    # If removed, bot indexes everything.
+    # Let's trust user request "remove auth channel required".
+    if True: # str(channel_id) in AUTH_CHANNEL:
         try:
             file = message.video or message.document
             caption = message.caption or ""
@@ -417,15 +418,10 @@ async def create_index(bot: Client, message: Message):
     from bot.telegram import UserBot
     
     channel_id = message.chat.id
-    AUTH_CHANNEL = await db.get_variable('auth_channel')
-    if AUTH_CHANNEL is None or AUTH_CHANNEL.strip() == '':
-        AUTH_CHANNEL = Telegram.AUTH_CHANNEL
-    else:
-        AUTH_CHANNEL = [channel.strip() for channel in AUTH_CHANNEL.split(",")]
-    
-    if str(channel_id) not in AUTH_CHANNEL:
-        await message.reply(text="Channel is not in AUTH_CHANNEL")
-        return
+    # Remove Auth Channel restriction
+    # if str(channel_id) not in AUTH_CHANNEL:
+    #     await message.reply(text="Channel is not in AUTH_CHANNEL")
+    #     return
     
     try:
         wait_msg = await message.reply(text="📂 Scanning channel messages...")
@@ -702,7 +698,7 @@ async def _build_folder_keyboard(folder_id, channel_id, page=1):
         else:
             nav_row.append(InlineKeyboardButton("⬅️ Back", callback_data=f"bf|{parent_id}|{channel_id}|1"))
     else:
-        nav_row.append(InlineKeyboardButton("⬅️ Channels", callback_data="browse_home"))
+        nav_row.append(InlineKeyboardButton("❌ Close", callback_data="close"))
     
     # Pagination row
     import math
@@ -774,82 +770,39 @@ async def browse_command(bot: Client, message: Message):
         )
         return
 
-    # Check if authorized (Private or Auth Channel)
-    if message.chat.type != ChatType.PRIVATE:
-        auth_channels = await _get_auth_channels()
-        if str(message.chat.id) not in auth_channels:
-            return
-
-    try:
-        auth_channels = await _get_auth_channels()
-        
-        if not auth_channels:
-            await message.reply("❌ No channels configured.")
-            return
-        
-        buttons = []
-        for ch_id in auth_channels:
-            try:
-                chat = await StreamBot.get_chat(int(ch_id))
-                title = chat.title or chat.first_name or str(ch_id)
-                display = title[:30] + "…" if len(title) > 30 else title
-                buttons.append([InlineKeyboardButton(
-                    f"📺 {display}",
-                    callback_data=f"bch|{ch_id}"
-                )])
-            except Exception:
-                buttons.append([InlineKeyboardButton(
-                    f"📺 Channel {ch_id}",
-                    callback_data=f"bch|{ch_id}"
-                )])
-        
+    # Check context: Must be in a Channel or Group for index browsing
+    if message.chat.type in [ChatType.SUPERGROUP, ChatType.CHANNEL, ChatType.GROUP]:
+        try:
+            # Direct browse for current channel
+            text, keyboard = await _build_folder_keyboard("root", str(message.chat.id), 1)
+            await message.reply(
+                f"📁 **Browsing {message.chat.title}**\n\n{text}",
+                reply_markup=keyboard,
+                parse_mode=ParseMode.MARKDOWN
+            )
+        except Exception as e:
+            LOGGER.error(f"Browse command error: {e}")
+            await message.reply(f"❌ Error: {str(e)}")
+    else:
+        # Private Chat: Tell user to go to channel
         await message.reply(
-            "📚 **Browse Channel Files**\n"
-            "━━━━━━━━━━━━━━━━━━\n"
-            "Select a channel to browse its files:",
-            reply_markup=InlineKeyboardMarkup(buttons),
+            "⚠️ **Browse Command Usage**\n\n"
+            "Please run `/browse` inside the **Channel** or **Group** you want to browse.\n"
+            "This command shows the index for the current chat only.",
             parse_mode=ParseMode.MARKDOWN
         )
-    except Exception as e:
-        LOGGER.error(f"Browse command error: {e}")
-        await message.reply(f"❌ Error: {str(e)}")
+
+
+@StreamBot.on_callback_query(filters.regex(r'^close$'))
+async def close_callback(bot: Client, query: CallbackQuery):
+    """Close the menu."""
+    await query.message.delete()
 
 
 @StreamBot.on_callback_query(filters.regex(r'^browse_home$'))
 async def browse_home_callback(bot: Client, query: CallbackQuery):
-    """Go back to channel list."""
-    if not await db.is_premium(query.from_user.id):
-        await query.answer("💎 Premium Only! Check /plans", show_alert=True)
-        return
-    try:
-        auth_channels = await _get_auth_channels()
-        buttons = []
-        for ch_id in auth_channels:
-            try:
-                chat = await StreamBot.get_chat(int(ch_id))
-                title = chat.title or chat.first_name or str(ch_id)
-                display = title[:30] + "…" if len(title) > 30 else title
-                buttons.append([InlineKeyboardButton(
-                    f"📺 {display}",
-                    callback_data=f"bch|{ch_id}"
-                )])
-            except Exception:
-                buttons.append([InlineKeyboardButton(
-                    f"📺 Channel {ch_id}",
-                    callback_data=f"bch|{ch_id}"
-                )])
-        
-        await query.message.edit_text(
-            "📚 **Browse Channel Files**\n"
-            "━━━━━━━━━━━━━━━━━━\n"
-            "Select a channel to browse its files:",
-            reply_markup=InlineKeyboardMarkup(buttons),
-            parse_mode=ParseMode.MARKDOWN
-        )
-        await query.answer()
-    except Exception as e:
-        LOGGER.error(f"Browse home callback error: {e}")
-        await query.answer(f"Error: {str(e)}", show_alert=True)
+    """Deprecated: Close menu."""
+    await query.message.delete()
 
 
 @StreamBot.on_callback_query(filters.regex(r'^bch\|'))
