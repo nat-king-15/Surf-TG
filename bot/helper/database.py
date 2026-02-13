@@ -21,6 +21,7 @@ class Database:
         self.user_settings = self.db["user_settings"]
         self.user_sessions = self.db["user_sessions"]
         self.daily_usage = self.db["daily_usage"]
+        self.plans = self.db["plans"]
         # Indexes for browse performance - handled async separately or just defined here
         # Motor create_index is awaitable, but __init__ cannot be async.
         # We can rely on background index creation or call a setup method.
