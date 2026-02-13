@@ -403,28 +403,65 @@ async def file_receive_handler(bot: Client, message: Message):
     #     await message.reply(text="Channel is not in AUTH_CHANNEL")
 
 
+# Helper to handle permissions for both /index and /browse
+async def check_access_and_get_target(bot: Client, message: Message):
+    """
+    Determines the target channel ID and verifies permissions.
+    Returns: (target_id, error_message)
+    """
+    user_id = message.from_user.id if message.from_user else None
+    
+    # Scenario A: Private Chat with Channel ID argument -> Remote execution
+    if message.chat.type == ChatType.PRIVATE:
+        if len(message.command) > 1:
+            try:
+                target_id = int(message.command[1])
+                # Must be Premium to use remote features
+                if not user_id or not await db.is_premium(user_id):
+                    return None, "💎 **Premium Only!**\n\nRemote execution is a premium feature."
+                
+                # Must be Admin in target channel
+                try:
+                    member = await bot.get_chat_member(target_id, user_id)
+                    if member.status not in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]:
+                        return None, "❌ You must be an Admin in the target channel."
+                except Exception as e:
+                    return None, f"❌ Check permissions. Make sure I am an Admin in that channel.\nError: {e}"
+                
+                return target_id, None
+            except ValueError:
+                return None, "❌ Invalid Channel ID format."
+        else:
+             return None, "Usage:\n• In Channel: `/index`\n• Remote: `/index -100xxxx`"
+
+    # Scenario B: Channel/Group execution
+    else:
+        # 1. Anonymous Admin (sender_chat == chat_id)
+        # We allow this WITHOUT premium check because we can't identify the user, 
+        # but they are definitely an admin of the channel.
+        if message.sender_chat and message.sender_chat.id == message.chat.id:
+            return message.chat.id, None
+
+        # 2. Regular User (with ID)
+        if user_id:
+            if not await db.is_premium(user_id):
+                 return None, "💎 **Premium Only!**\n\nThis command is restricted to Premium users."
+            return message.chat.id, None
+            
+        # Fallback for weird states
+        return None, "❌ Cannot verify permissions."
+
+
 @StreamBot.on_message(filters.command(['createindex', 'index']))
 async def create_index(bot: Client, message: Message):
-    # Check Premium status
-    user = message.from_user or message.sender_chat
-    user_id = user.id
-    if not await db.is_premium(user_id):
-        await message.reply(
-            f"💎 **Premium Only!**\n\n"
-            f"Creating an index is a premium feature.\n"
-            f"User/Channel ID: `{user_id}`\n"
-            f"Use /plans to upgrade.",
-            parse_mode=ParseMode.MARKDOWN
-        )
+    target_id, error = await check_access_and_get_target(bot, message)
+    if error:
+        await message.reply(error, parse_mode=ParseMode.MARKDOWN)
         return
 
     from bot.telegram import UserBot
     
-    channel_id = message.chat.id
-    # Remove Auth Channel restriction
-    # if str(channel_id) not in AUTH_CHANNEL:
-    #     await message.reply(text="Channel is not in AUTH_CHANNEL")
-    #     return
+    channel_id = target_id
     
     try:
         wait_msg = await message.reply(text="📂 Scanning channel messages...")
@@ -763,40 +800,34 @@ async def _build_folder_keyboard(folder_id, channel_id, page=1):
 @StreamBot.on_message(filters.command('browse'))
 async def browse_command(bot: Client, message: Message):
     """Show channels to browse as inline keyboard buttons."""
-    # Check Premium status
-    user = message.from_user or message.sender_chat
-    user_id = user.id
-    if not await db.is_premium(user_id):
-        await message.reply(
-            f"💎 **Premium Only!**\n\n"
-            f"Browsing channels is a premium feature.\n"
-            f"User/Channel ID: `{user_id}`\n"
-            f"Use /plans to upgrade.",
-            parse_mode=ParseMode.MARKDOWN
-        )
+    channel_id, error = await check_access_and_get_target(bot, message)
+    if error:
+        await message.reply(error, parse_mode=ParseMode.MARKDOWN)
         return
 
-    # Check context: Must be in a Channel or Group for index browsing
-    if message.chat.type in [ChatType.SUPERGROUP, ChatType.CHANNEL, ChatType.GROUP]:
+    try:
+        # Use target channel_id
+        text, keyboard = await _build_folder_keyboard("root", str(channel_id), 1)
+        
+        # Try to get chat title for display
+        chat_title = str(channel_id)
         try:
-            # Direct browse for current channel
-            text, keyboard = await _build_folder_keyboard("root", str(message.chat.id), 1)
-            await message.reply(
-                f"📁 **Browsing {message.chat.title}**\n\n{text}",
-                reply_markup=keyboard,
-                parse_mode=ParseMode.MARKDOWN
-            )
-        except Exception as e:
-            LOGGER.error(f"Browse command error: {e}")
-            await message.reply(f"❌ Error: {str(e)}")
-    else:
-        # Private Chat: Tell user to go to channel
+            if message.chat.id == channel_id:
+                chat_title = message.chat.title
+            else:
+                chat = await bot.get_chat(channel_id)
+                chat_title = chat.title
+        except:
+            pass
+
         await message.reply(
-            "⚠️ **Browse Command Usage**\n\n"
-            "Please run `/browse` inside the **Channel** or **Group** you want to browse.\n"
-            "This command shows the index for the current chat only.",
+            f"📁 **Browsing {chat_title}**\n\n{text}",
+            reply_markup=keyboard,
             parse_mode=ParseMode.MARKDOWN
         )
+    except Exception as e:
+        LOGGER.error(f"Browse command error: {e}")
+        await message.reply(f"❌ Error: {str(e)}")
 
 
 @StreamBot.on_callback_query(filters.regex(r'^close$'))
