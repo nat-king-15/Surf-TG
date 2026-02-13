@@ -2,6 +2,7 @@ from asyncio import get_event_loop, sleep as asleep, gather
 from traceback import format_exc
 import json
 import os
+import signal
 
 from aiohttp import web
 from pyrogram import idle
@@ -16,6 +17,9 @@ from bot.telegram.clients import initialize_clients
 loop = get_event_loop()
 
 UPDATE_FLAG_FILE = ".update_flag"
+
+# Global reference for cleanup
+_runner = None
 
 
 async def _send_update_notification():
@@ -60,6 +64,7 @@ async def _send_update_notification():
         LOGGER.warning(f"Could not send update notification: {e}")
 
 async def start_services():
+    global _runner
     LOGGER.info(f'Initializing Natking-TG v-{__version__}')
     await asleep(1.2)
     
@@ -77,15 +82,15 @@ async def start_services():
     
     await asleep(2)
     LOGGER.info('Initalizing Surf Web Server..')
-    server = web.AppRunner(await web_server())
+    _runner = web.AppRunner(await web_server())
     LOGGER.info("Server CleanUp!")
-    await server.cleanup()
+    await _runner.cleanup()
     
     await asleep(2)
     LOGGER.info("Server Setup Started !")
     
-    await server.setup()
-    await web.TCPSite(server, '0.0.0.0', Telegram.PORT).start()
+    await _runner.setup()
+    await web.TCPSite(_runner, '0.0.0.0', Telegram.PORT, reuse_address=True, reuse_port=True).start()
 
     LOGGER.info("Natking-TG Started Revolving !")
     
@@ -95,6 +100,12 @@ async def start_services():
     await idle()
 
 async def stop_clients():
+    global _runner
+    # Cleanup the web server first to release the port
+    if _runner is not None:
+        LOGGER.info("Cleaning up web server...")
+        await _runner.cleanup()
+        _runner = None
     await StreamBot.stop()
     if len(Telegram.SESSION_STRING) != 0:
         await UserBot.stop()
