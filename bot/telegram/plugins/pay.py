@@ -79,13 +79,19 @@ async def plans_handler(bot: Client, message: Message):
 # Owner Commands: Plan Management
 # ═══════════════════════════════════════════════════════════════════
 
-@StreamBot.on_message(filters.command("addplan") & filters.user(Telegram.OWNER_ID))
+@StreamBot.on_message(filters.command("addplan"))
 async def add_plan_command(bot: Client, message: Message):
     """
     Add/Update a plan.
     Usage: /addplan <key> <duration> <unit> <price> <label>
     Example: /addplan d 1 days ₹10 Daily
     """
+    if message.from_user.id != Telegram.OWNER_ID and message.from_user.id not in Telegram.SUDO_USERS:
+        # Silently ignore or reply for debugging?
+        # For this troubleshooting session, I'll reply with ID.
+        # await message.reply_text(f"❌ Unauthorized. Your ID: `{message.from_user.id}` vs Owner: `{Telegram.OWNER_ID}`")
+        return
+        
     try:
         args = message.text.split(None, 5)
         if len(args) < 6:
@@ -113,12 +119,15 @@ async def add_plan_command(bot: Client, message: Message):
         await message.reply_text(f"❌ Error: {e}")
 
 
-@StreamBot.on_message(filters.command("delplan") & filters.user(Telegram.OWNER_ID))
+@StreamBot.on_message(filters.command("delplan"))
 async def del_plan_command(bot: Client, message: Message):
     """
     Delete a plan.
     Usage: /delplan <key>
     """
+    if message.from_user.id != Telegram.OWNER_ID and message.from_user.id not in Telegram.SUDO_USERS:
+        return
+
     try:
         if len(message.command) < 2:
             await message.reply_text("❌ Usage: `/delplan <key>`")
@@ -133,9 +142,12 @@ async def del_plan_command(bot: Client, message: Message):
          await message.reply_text(f"❌ Error: {e}")
 
 
-@StreamBot.on_message(filters.command("listplans") & filters.user(Telegram.OWNER_ID))
+@StreamBot.on_message(filters.command("listplans"))
 async def list_plans_command(bot: Client, message: Message):
     """List all configured plans (Raw)."""
+    if message.from_user.id != Telegram.OWNER_ID and message.from_user.id not in Telegram.SUDO_USERS:
+        return
+
     plans = await db.get_plans()
     if not plans:
         await message.reply_text("📂 No plans in database.")
