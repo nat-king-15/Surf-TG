@@ -455,9 +455,11 @@ async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, ch
             await prog_msg.delete()
             return "Done."
 
-        elif msg.text:
-            await bot_client.send_message(target_chat, text=msg.text, reply_to_message_id=reply_to)
-            return "Sent."
+        # elif msg.text:
+        #     await bot_client.send_message(target_chat, text=msg.text, reply_to_message_id=reply_to)
+        #     return "Sent."
+        
+        return "Ignored."
 
     except Exception as e:
         LOGGER.error(f"process_msg error: {e}")
