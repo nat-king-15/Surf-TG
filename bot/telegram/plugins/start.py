@@ -126,6 +126,11 @@ HELP_TEXT = """📖 **Surf-TG Commands**
 • `/ytdl <url>` → download video (YouTube, etc.)
 • `/adl <url>` → download audio only
 
+**🛠 Index & Browse**
+• `/browse` → browse indexed files in inline mode
+• `/index` or `/createindex` → create/update index for channel
+• `/update` → update bot to latest code (Owner only)
+
 **👑 Owner Only**
 • `/add <user_id> <hours>` → grant premium
 • `/rem <user_id>` → revoke premium
@@ -397,7 +402,7 @@ async def file_receive_handler(bot: Client, message: Message):
     #     await message.reply(text="Channel is not in AUTH_CHANNEL")
 
 
-@StreamBot.on_message(filters.command('createindex'))
+@StreamBot.on_message(filters.command(['createindex', 'index']))
 async def create_index(bot: Client, message: Message):
     from bot.telegram import UserBot
     
