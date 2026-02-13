@@ -1045,8 +1045,25 @@ async def browse_vc_play_callback(bot: Client, query: CallbackQuery):
         encoded_name = quote(fname, safe='')
         stream_url = f"{base_url}/{clean_chat_id}/{encoded_name}?id={msg_id}&hash={file_hash}"
         
-        # Use auth channel for VC
-        vc_chat_id = int(Telegram.AUTH_CHANNEL[0]) if Telegram.AUTH_CHANNEL else int(chat_id)
+        # Use source channel for VC
+        vc_chat_id = int(chat_id)
+        
+        # Auto-Invite & Promote UserBot if needed
+        from bot.telegram import UserBot
+        try:
+            ub = await UserBot.get_me()
+            try:
+                member = await bot.get_chat_member(vc_chat_id, ub.id)
+                # If present but not admin with VC perms, promote
+                if member.status not in [ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER]:
+                     await bot.promote_chat_member(vc_chat_id, ub.id, can_manage_video_chats=True)
+            except UserNotParticipant:
+                # Not a member: Invite & Promote
+                await bot.add_chat_members(vc_chat_id, ub.id)
+                await bot.promote_chat_member(vc_chat_id, ub.id, can_manage_video_chats=True)
+        except Exception as e:
+            LOGGER.warning(f"Auto-invite/promote UserBot failed: {e}")
+            # We continue; maybe it works, or play will fail with specific error later
         
         success, message = await start_vc_stream(
             vc_chat_id, stream_url, fname,
