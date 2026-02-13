@@ -16,7 +16,7 @@ from typing import Dict, Any, Optional
 
 from pyrogram import Client, filters
 from pyrogram.types import Message
-from pyrogram.errors import FileReferenceExpired
+from pyrogram.errors import FileReferenceExpired, ChannelInvalid
 
 from bot.telegram import StreamBot
 from bot.config import Telegram
@@ -401,6 +401,39 @@ async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, ch
                         target_chat, document=downloaded, caption=final_text,
                         reply_to_message_id=reply_to,
                     )
+            except ChannelInvalid:
+                # Fallback to DM if custom bot can't access channel
+                try:
+                    await prog_msg.edit_text("⚠️ Channel invalid/inaccessible. Sending to DM...")
+                    target_chat = int(dest_chat_id)
+                    reply_to = None
+                    if msg.video or (msg.document and ext in video_exts):
+                         await bot_client.send_video(
+                            target_chat, video=downloaded, caption=final_text,
+                            thumb=th, width=meta["width"], height=meta["height"],
+                            duration=meta["duration"],
+                            progress=progress, progress_args=(bot_client, int(dest_chat_id), prog_msg.id, start_time),
+                        )
+                    elif msg.audio or (msg.document and ext in audio_exts):
+                        await bot_client.send_audio(
+                            target_chat, audio=downloaded, caption=final_text, thumb=thumb,
+                            progress=progress, progress_args=(bot_client, int(dest_chat_id), prog_msg.id, start_time),
+                        )
+                    elif msg.photo:
+                        await bot_client.send_photo(target_chat, photo=downloaded, caption=final_text)
+                    elif msg.document:
+                        await bot_client.send_document(
+                            target_chat, document=downloaded, caption=final_text, thumb=thumb,
+                            progress=progress, progress_args=(bot_client, int(dest_chat_id), prog_msg.id, start_time),
+                        )
+                    else:
+                        await bot_client.send_document(target_chat, document=downloaded, caption=final_text)
+                except Exception as e:
+                    await prog_msg.edit_text(f"DM Upload failed: {str(e)[:80]}")
+                    if os.path.exists(downloaded):
+                        os.remove(downloaded)
+                    return "Failed."
+
             except Exception as e:
                 await prog_msg.edit_text(f"Upload failed: {str(e)[:80]}")
                 if os.path.exists(downloaded):
