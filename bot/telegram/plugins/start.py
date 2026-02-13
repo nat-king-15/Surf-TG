@@ -754,6 +754,16 @@ async def _build_folder_keyboard(folder_id, channel_id, page=1):
 @StreamBot.on_message(filters.command('browse'))
 async def browse_command(bot: Client, message: Message):
     """Show channels to browse as inline keyboard buttons."""
+    # Check Premium status
+    if not await db.is_premium(message.from_user.id):
+        await message.reply(
+            "💎 **Premium Only!**\n\n"
+            "Browsing channels is a premium feature.\n"
+            "Use /plans to upgrade.",
+            parse_mode=ParseMode.MARKDOWN
+        )
+        return
+
     # Check if authorized (Private or Auth Channel)
     if message.chat.type != ChatType.PRIVATE:
         auth_channels = await _get_auth_channels()
