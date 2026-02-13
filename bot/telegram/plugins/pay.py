@@ -76,9 +76,6 @@ async def plans_handler(bot: Client, message: Message):
 
 
 # ═══════════════════════════════════════════════════════════════════
-# Owner Commands: Plan Management
-# ═══════════════════════════════════════════════════════════════════
-
 @StreamBot.on_message(filters.command("addplan"))
 async def add_plan_command(bot: Client, message: Message):
     """
@@ -86,10 +83,13 @@ async def add_plan_command(bot: Client, message: Message):
     Usage: /addplan <key> <duration> <unit> <price> <label>
     Example: /addplan d 1 days ₹10 Daily
     """
+    # Debugging: Reply with ID info if unauthorized
     if message.from_user.id != Telegram.OWNER_ID and message.from_user.id not in Telegram.SUDO_USERS:
-        # Silently ignore or reply for debugging?
-        # For this troubleshooting session, I'll reply with ID.
-        # await message.reply_text(f"❌ Unauthorized. Your ID: `{message.from_user.id}` vs Owner: `{Telegram.OWNER_ID}`")
+        await message.reply_text(
+            f"❌ **Unauthorized**\n\n"
+            f"Your ID: `{message.from_user.id}`\n"
+            f"Owner ID: `{Telegram.OWNER_ID}`"
+        )
         return
         
     try:
