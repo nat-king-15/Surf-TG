@@ -16,6 +16,7 @@ from typing import Dict, Any, Optional
 
 from pyrogram import Client, filters
 from pyrogram.types import Message
+from pyrogram.errors import FileReferenceExpired
 
 from bot.telegram import StreamBot
 from bot.config import Telegram
@@ -298,12 +299,30 @@ async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, ch
             else:
                 file_name = f"{time.time()}"
 
-            downloaded = await uclient.download_media(
-                msg,
-                file_name=file_name,
-                progress=progress,
-                progress_args=(bot_client, int(dest_chat_id), prog_msg.id, start_time),
-            )
+            try:
+                downloaded = await uclient.download_media(
+                    msg,
+                    file_name=file_name,
+                    progress=progress,
+                    progress_args=(bot_client, int(dest_chat_id), prog_msg.id, start_time),
+                )
+            except FileReferenceExpired:
+                # Re-fetch message to get a fresh file reference
+                LOGGER.info(f"File reference expired for msg {msg.id}, re-fetching...")
+                try:
+                    msg = await uclient.get_messages(msg.chat.id, msg.id)
+                except Exception:
+                    try:
+                        msg = await bot_client.get_messages(msg.chat.id, msg.id)
+                    except Exception:
+                        pass
+                start_time = time.time()
+                downloaded = await uclient.download_media(
+                    msg,
+                    file_name=file_name,
+                    progress=progress,
+                    progress_args=(bot_client, int(dest_chat_id), prog_msg.id, start_time),
+                )
 
             if not downloaded:
                 await prog_msg.edit_text("Failed to download.")
