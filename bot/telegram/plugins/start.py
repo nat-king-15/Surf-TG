@@ -393,8 +393,8 @@ async def file_receive_handler(bot: Client, message: Message):
             await sleep(e.value)
             await message.reply(text=f"Got Floodwait of {str(e.value)}s",
                                 disable_web_page_preview=True, parse_mode=ParseMode.MARKDOWN)
-    else:
-        await message.reply(text="Channel is not in AUTH_CHANNEL")
+    # else:
+    #     await message.reply(text="Channel is not in AUTH_CHANNEL")
 
 
 @StreamBot.on_message(filters.command('createindex'))
