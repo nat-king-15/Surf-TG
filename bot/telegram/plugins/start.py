@@ -436,20 +436,22 @@ async def check_access_and_get_target(bot: Client, message: Message):
 
     # Scenario B: Channel/Group execution
     else:
-        # 1. Anonymous Users (Admin or Send As Channel)
-        # We cannot verify premium status for anonymous users (no user_id).
-        # We allow them to proceed to avoid breaking functionality for admins.
+        # 1. Channel Posts (Always Admin)
+        if message.chat.type == ChatType.CHANNEL:
+            return message.chat.id, None
+
+        # 2. Anonymous Users in Groups (sender_chat)
         if message.sender_chat:
             return message.chat.id, None
 
-        # 2. Regular User (with ID)
+        # 3. Regular User (with ID)
         if user_id:
             if not await db.is_premium(user_id):
                  return None, "💎 **Premium Only!**\n\nThis command is restricted to Premium users."
             return message.chat.id, None
             
         # Fallback for weird states
-        debug_info = f"UID: {user_id}, Chat: {message.chat.id}, Sender: {message.sender_chat.id if message.sender_chat else 'None'}"
+        debug_info = f"UID: {user_id}, Chat: {message.chat.id}, Type: {message.chat.type}"
         return None, f"❌ Cannot verify permissions.\n\nDebug: `{debug_info}`"
 
 
