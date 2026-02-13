@@ -410,8 +410,9 @@ async def check_access_and_get_target(bot: Client, message: Message):
     Returns: (target_id, error_message)
     """
     user_id = message.from_user.id if message.from_user else None
+    target_id = None
     
-    # Scenario A: Private Chat with Channel ID argument -> Remote execution
+    # 1. Determine Target ID and User Authorization
     if message.chat.type == ChatType.PRIVATE:
         if len(message.command) > 1:
             try:
@@ -427,32 +428,38 @@ async def check_access_and_get_target(bot: Client, message: Message):
                         return None, "❌ You must be an Admin in the target channel."
                 except Exception as e:
                     return None, f"❌ Check permissions. Make sure I am an Admin in that channel.\nError: {e}"
-                
-                return target_id, None
             except ValueError:
                 return None, "❌ Invalid Channel ID format."
         else:
              return None, "Usage:\n• In Channel: `/index`\n• Remote: `/index -100xxxx`"
 
-    # Scenario B: Channel/Group execution
+    # Channel/Group execution
     else:
-        # 1. Channel Posts (Always Admin)
-        if message.chat.type == ChatType.CHANNEL:
-            return message.chat.id, None
-
-        # 2. Anonymous Users in Groups (sender_chat)
-        if message.sender_chat:
-            return message.chat.id, None
-
-        # 3. Regular User (with ID)
-        if user_id:
+        target_id = message.chat.id
+        # Authorization Check:
+        # A. Channel Post (Always Admin) or Anonymous Sender
+        if message.chat.type == ChatType.CHANNEL or message.sender_chat:
+            pass # Authorized
+        
+        # B. Regular User (with ID) - Check Premium
+        elif user_id:
             if not await db.is_premium(user_id):
                  return None, "💎 **Premium Only!**\n\nThis command is restricted to Premium users."
-            return message.chat.id, None
-            
-        # Fallback for weird states
-        debug_info = f"UID: {user_id}, Chat: {message.chat.id}, Type: {message.chat.type}"
-        return None, f"❌ Cannot verify permissions.\n\nDebug: `{debug_info}`"
+        else:
+             # Fallback
+             debug_info = f"UID: {user_id}, Chat: {message.chat.id}, Type: {message.chat.type}"
+             return None, f"❌ Cannot verify permissions.\n\nDebug: `{debug_info}`"
+
+    # 2. Check Database Binding (The "Auth Channel" Replacement)
+    # The target channel MUST be in the settings of SOME Premium User.
+    if not await db.is_channel_bound_to_premium(target_id):
+         return None, (
+             "❌ **Unauthorized Channel**\n\n"
+             "This channel is not listed in any **Premium User's** settings.\n"
+             "A Premium User must add this Channel ID to their `/settings`."
+         )
+
+    return target_id, None
 
 
 @StreamBot.on_message(filters.command(['createindex', 'index']))

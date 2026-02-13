@@ -612,3 +612,14 @@ class Database:
         used = await self.get_usage(user_id)
         return max(0, limit - used)
 
+    async def is_channel_bound_to_premium(self, chat_id: int) -> bool:
+        """Check if chat_id is linked to any active premium user's settings."""
+        # Chat ID is stored as string in settings
+        chat_id_str = str(chat_id)
+        # Find all users who have this chat_id in settings
+        cursor = self.user_settings.find({"chat_id": chat_id_str})
+        async for setting in cursor:
+            user_id = setting["_id"]
+            if await self.is_premium(user_id):
+                return True
+        return False
