@@ -10,30 +10,48 @@ def parse_topic_hierarchy(caption: str) -> Optional[list]:
     """
     Parse Topic field from caption and return folder path list.
     
+    Updated Logic:
+    1. Extract 'Batch: ...' as root folder.
+    2. Extract 'Topic: ...' as subfolders.
+    3. Remove 'Home' from Topic path if present at start.
+    
     Args:
-        caption: Message caption containing Topic field
+        caption: Message caption containing Topic/Batch fields
         
     Returns:
-        List of folder names from parent to child, or None if no Topic found
-        Example: ["Home", "ENGLISH LIVE BATCH", "ARTICLE"]
+        List of folder names from parent to child, or None if no structure found
+        Example: ["My Batch 2024", "ENGLISH", "ARTICLE"]
     """
     if not caption:
         return None
     
-    # Match "Topic:" or "Topic :" followed by the path
+    final_path = []
+    
+    # 1. Parse Batch Name (Root Folder)
+    # Look for "Batch:" followed by text until newline
+    batch_match = re.search(r'Batch\s*:\s*(.+?)(?:\n|$)', caption, re.IGNORECASE)
+    if batch_match:
+        batch_name = batch_match.group(1).strip()
+        if batch_name:
+            final_path.append(batch_name)
+    
+    # 2. Parse Topic Hierarchy (Subfolders)
+    # Look for "Topic:" followed by text until newline
     topic_match = re.search(r'Topic\s*:\s*(.+?)(?:\n|$)', caption, re.IGNORECASE)
-    if not topic_match:
-        return None
-    
-    topic_line = topic_match.group(1).strip()
-    if not topic_line:
-        return None
-    
-    # Split by " -> " delimiter
-    folders = [folder.strip() for folder in topic_line.split('->')]
-    folders = [f for f in folders if f]  # Remove empty strings
-    
-    return folders if folders else None
+    if topic_match:
+        topic_line = topic_match.group(1).strip()
+        if topic_line:
+            # Split by "->" separator
+            topic_folders = [f.strip() for f in topic_line.split('->')]
+            topic_folders = [f for f in topic_folders if f]  # Remove empty strings
+            
+            # Remove "Home" if it is the first folder
+            if topic_folders and topic_folders[0].lower() == "home":
+                topic_folders.pop(0)
+            
+            final_path.extend(topic_folders)
+            
+    return final_path if final_path else None
 
 
 async def get_or_create_folder_path(db, folder_path: list, channel_id: str = None) -> Optional[str]:
