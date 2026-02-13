@@ -808,6 +808,9 @@ async def browse_command(bot: Client, message: Message):
 @StreamBot.on_callback_query(filters.regex(r'^browse_home$'))
 async def browse_home_callback(bot: Client, query: CallbackQuery):
     """Go back to channel list."""
+    if not await db.is_premium(query.from_user.id):
+        await query.answer("💎 Premium Only! Check /plans", show_alert=True)
+        return
     try:
         auth_channels = await _get_auth_channels()
         buttons = []
@@ -842,6 +845,9 @@ async def browse_home_callback(bot: Client, query: CallbackQuery):
 @StreamBot.on_callback_query(filters.regex(r'^bch\|'))
 async def browse_channel_callback(bot: Client, query: CallbackQuery):
     """User clicked a channel - show root folders."""
+    if not await db.is_premium(query.from_user.id):
+        await query.answer("💎 Premium Only! Check /plans", show_alert=True)
+        return
     try:
         _, channel_id = query.data.split("|", 1)
         
@@ -869,6 +875,9 @@ async def browse_channel_callback(bot: Client, query: CallbackQuery):
 @StreamBot.on_callback_query(filters.regex(r'^bf\|'))
 async def browse_folder_callback(bot: Client, query: CallbackQuery):
     """User clicked a folder - show its contents."""
+    if not await db.is_premium(query.from_user.id):
+        await query.answer("💎 Premium Only! Check /plans", show_alert=True)
+        return
     try:
         parts = query.data.split("|")
         # bf|folder_id|channel_id|page
@@ -906,6 +915,9 @@ async def browse_folder_callback(bot: Client, query: CallbackQuery):
 @StreamBot.on_callback_query(filters.regex(r'^bfi\|'))
 async def browse_file_callback(bot: Client, query: CallbackQuery):
     """User clicked a file - show action menu."""
+    if not await db.is_premium(query.from_user.id):
+        await query.answer("💎 Premium Only! Check /plans", show_alert=True)
+        return
     try:
         parts = query.data.split("|")
         # bfi|msg_id|chat_id|hash|folder_id
