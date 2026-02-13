@@ -285,77 +285,76 @@ async def settings_back_callback(bot: Client, query: CallbackQuery):
 
 @StreamBot.on_message(filters.command('index'))
 async def start(bot: Client, message: Message):
-    channel_id = message.chat.id
-    AUTH_CHANNEL = await db.get_variable('auth_channel')
-    if AUTH_CHANNEL is None or AUTH_CHANNEL.strip() == '':
-        AUTH_CHANNEL = Telegram.AUTH_CHANNEL
-    else:
-        AUTH_CHANNEL = [channel.strip() for channel in AUTH_CHANNEL.split(",")]
-    if str(channel_id) in AUTH_CHANNEL:
-        try:
-            last_id = message.id
-            start_message = (
-                "🔄 Please perform this action only once at the beginning of Natking-TG usage.\n\n"
-                "📋 File listing is currently in progress.\n\n"
-                "📂 Auto-creating folders from Topic hierarchy...\n\n"
-                "🚫 Please refrain from sending any additional files or indexing other channels until this process completes.\n\n"
-                "⏳ Please be patient and wait a few moments."
-            )
+    # Use the shared helper to verify permissions
+    target_id, error = await check_access_and_get_target(bot, message)
+    if error:
+        await message.reply(error, parse_mode=ParseMode.MARKDOWN)
+        return
+    
+    channel_id = target_id
+    
+    try:
+        last_id = message.id
+        start_message = (
+            "🔄 Please perform this action only once at the beginning of Natking-TG usage.\n\n"
+            "📋 File listing is currently in progress.\n\n"
+            "📂 Auto-creating folders from Topic hierarchy...\n\n"
+            "🚫 Please refrain from sending any additional files or indexing other channels until this process completes.\n\n"
+            "⏳ Please be patient and wait a few moments."
+        )
 
-            wait_msg = await message.reply(text=start_message)
-            files = await get_messages(message.chat.id, 1, last_id)
+        wait_msg = await message.reply(text=start_message)
+        files = await get_messages(channel_id, 1, last_id)
+        
+        # Process files with topic folders
+        files_with_folders = 0
+        files_without_folders = []
+        
+        for file_data in files:
+            caption = file_data.get("caption", "")
+            topic_path = parse_topic_hierarchy(caption)
             
-            # Process files with topic folders
-            files_with_folders = 0
-            files_without_folders = []
-            
-            for file_data in files:
-                caption = file_data.get("caption", "")
-                topic_path = parse_topic_hierarchy(caption)
-                
-                if topic_path:
-                    folder_id = await get_or_create_folder_path(db, topic_path, str(channel_id))
-                    await db.add_tgfile_with_folder(
-                        file_data["chat_id"], 
-                        str(file_data["msg_id"]), 
-                        file_data["hash"], 
-                        file_data["title"], 
-                        file_data["size"], 
-                        file_data["type"],
-                        folder_id
-                    )
-                    files_with_folders += 1
-                else:
-                    # No topic, add to files without folder reference
-                    files_without_folders.append({
-                        "chat_id": file_data["chat_id"],
-                        "msg_id": file_data["msg_id"],
-                        "hash": file_data["hash"],
-                        "title": file_data["title"],
-                        "size": file_data["size"],
-                        "type": file_data["type"]
-                    })
-            
-            # Bulk add files without topic
-            if files_without_folders:
-                await db.add_btgfiles(files_without_folders)
-            
-            await wait_msg.delete()
-            done_message = (
-                f"✅ All your files have been successfully stored in the database. You're all set!\n\n"
-                f"📂 Files with Topic folders: {files_with_folders}\n"
-                f"📄 Files without Topic: {len(files_without_folders)}\n\n"
-                f"📁 You don't need to index again unless you make changes to the database."
-            )
+            if topic_path:
+                folder_id = await get_or_create_folder_path(db, topic_path, str(channel_id))
+                await db.add_tgfile_with_folder(
+                    file_data["chat_id"], 
+                    str(file_data["msg_id"]), 
+                    file_data["hash"], 
+                    file_data["title"], 
+                    file_data["size"], 
+                    file_data["type"],
+                    folder_id
+                )
+                files_with_folders += 1
+            else:
+                # No topic, add to files without folder reference
+                files_without_folders.append({
+                    "chat_id": file_data["chat_id"],
+                    "msg_id": file_data["msg_id"],
+                    "hash": file_data["hash"],
+                    "title": file_data["title"],
+                    "size": file_data["size"],
+                    "type": file_data["type"]
+                })
+        
+        # Bulk add files without topic
+        if files_without_folders:
+            await db.add_btgfiles(files_without_folders)
+        
+        await wait_msg.delete()
+        done_message = (
+            f"✅ All your files have been successfully stored in the database. You're all set!\n\n"
+            f"📂 Files with Topic folders: {files_with_folders}\n"
+            f"📄 Files without Topic: {len(files_without_folders)}\n\n"
+            f"📁 You don't need to index again unless you make changes to the database."
+        )
 
-            await bot.send_message(chat_id=message.chat.id, text=done_message)
-        except FloodWait as e:
-            LOGGER.info(f"Sleeping for {str(e.value)}s")
-            await sleep(e.value)
-            await message.reply(text=f"Got Floodwait of {str(e.value)}s",
-                                disable_web_page_preview=True, parse_mode=ParseMode.MARKDOWN)
-    else:
-        await message.reply(text="Channel is not in AUTH_CHANNEL")
+        await bot.send_message(chat_id=message.chat.id, text=done_message)
+    except FloodWait as e:
+        LOGGER.info(f"Sleeping for {str(e.value)}s")
+        await sleep(e.value)
+        await message.reply(text=f"Got Floodwait of {str(e.value)}s",
+                            disable_web_page_preview=True, parse_mode=ParseMode.MARKDOWN)
 
 
 @StreamBot.on_message(
@@ -367,13 +366,8 @@ async def start(bot: Client, message: Message):
 )
 async def file_receive_handler(bot: Client, message: Message):
     channel_id = message.chat.id
-    # Remove Auth_Channel check - index any file if processing enabled?
-    # Actually user wants "jis bhi chennel me ye cmd premium user dvara chalaya jayega us channel ki indexing honi chanhiye"
-    # This implies file_receive should also work?
-    # But usually file_receive handler saves ALL files.
-    # If removed, bot indexes everything.
-    # Let's trust user request "remove auth channel required".
-    if True: # str(channel_id) in AUTH_CHANNEL:
+    # Check if channel is bound to a premium user
+    if await db.is_channel_bound_to_premium(channel_id):
         try:
             file = message.video or message.document
             caption = message.caption or ""
