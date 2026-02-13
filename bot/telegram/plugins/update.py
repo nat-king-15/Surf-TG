@@ -3,7 +3,6 @@ import sys
 import json
 import asyncio
 import logging
-from subprocess import run as srun, PIPE
 from pyrogram import filters, Client
 from pyrogram.types import Message
 from pyrogram.enums.parse_mode import ParseMode
@@ -23,6 +22,18 @@ def is_owner(_, __, message: Message) -> bool:
 owner_filter = filters.create(is_owner)
 
 
+async def _run_shell(cmd: str, cwd: str = None) -> tuple:
+    """Run shell command asynchronously. Returns (returncode, stdout, stderr)."""
+    proc = await asyncio.create_subprocess_shell(
+        cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        cwd=cwd or os.getcwd(),
+    )
+    stdout, stderr = await proc.communicate()
+    return proc.returncode, stdout.decode(errors="replace"), stderr.decode(errors="replace")
+
+
 @StreamBot.on_message(filters.command('update') & filters.private & owner_filter)
 async def update_bot(bot: Client, message: Message):
     """Pull latest code from GitHub, install deps, and restart the bot."""
@@ -30,53 +41,72 @@ async def update_bot(bot: Client, message: Message):
         await message.reply("❌ `OWNER_ID` is not set in config.env!", parse_mode=ParseMode.MARKDOWN)
         return
 
+    repo = Telegram.UPSTREAM_REPO
+    branch = Telegram.UPSTREAM_BRANCH
+
+    if not repo:
+        await message.reply("❌ `UPSTREAM_REPO` is not set in config!", parse_mode=ParseMode.MARKDOWN)
+        return
+
     status_msg = await message.reply("📥 **Pulling latest code from GitHub...**", parse_mode=ParseMode.MARKDOWN)
 
-    # Step 1: Git Pull
+    # Step 1: Ensure git remote 'origin' points to the correct repo
     try:
-        repo = Telegram.UPSTREAM_REPO
-        branch = Telegram.UPSTREAM_BRANCH
-        pull_cmd = f"git fetch origin && git reset --hard origin/{branch}"
-        result = srun(pull_cmd, shell=True, capture_output=True, text=True, cwd=os.getcwd())
-
-        if result.returncode != 0:
-            # Try initializing git if not a repo
-            init_cmd = (
-                f"git init -q && "
-                f"git remote add origin {repo} 2>/dev/null; "
-                f"git fetch origin -q && "
-                f"git reset --hard origin/{branch} -q"
-            )
-            result = srun(init_cmd, shell=True, capture_output=True, text=True, cwd=os.getcwd())
-
-        if result.returncode == 0:
-            await status_msg.edit_text(
-                "✅ **Code updated!**\n\n📦 **Installing dependencies...**",
-                parse_mode=ParseMode.MARKDOWN
-            )
+        # Check if git is initialized
+        rc, _, _ = await _run_shell("git rev-parse --is-inside-work-tree")
+        if rc != 0:
+            # Not a git repo — initialize
+            await _run_shell("git init -q")
+            await _run_shell(f"git remote add origin {repo}")
+            LOGGER.info("Initialized git repo and added origin remote")
         else:
-            error = result.stderr[:500] if result.stderr else "Unknown error"
+            # Git repo exists — ensure origin is correct
+            rc, current_url, _ = await _run_shell("git remote get-url origin")
+            if rc != 0:
+                # origin doesn't exist, add it
+                await _run_shell(f"git remote add origin {repo}")
+            elif current_url.strip() != repo:
+                # origin points to wrong repo, update it
+                await _run_shell(f"git remote set-url origin {repo}")
+                LOGGER.info(f"Updated origin remote: {current_url.strip()} → {repo}")
+
+        # Fetch and hard reset
+        rc, stdout, stderr = await _run_shell(f"git fetch origin {branch} --depth=1")
+        if rc != 0:
             await status_msg.edit_text(
-                f"❌ **Git pull failed!**\n```\n{error}\n```",
+                f"❌ **Git fetch failed!**\n```\n{stderr[:500]}\n```",
                 parse_mode=ParseMode.MARKDOWN
             )
             return
+
+        rc, stdout, stderr = await _run_shell(f"git reset --hard origin/{branch}")
+        if rc != 0:
+            await status_msg.edit_text(
+                f"❌ **Git reset failed!**\n```\n{stderr[:500]}\n```",
+                parse_mode=ParseMode.MARKDOWN
+            )
+            return
+
+        await status_msg.edit_text(
+            "✅ **Code updated!**\n\n📦 **Installing dependencies...**",
+            parse_mode=ParseMode.MARKDOWN
+        )
     except Exception as e:
         await status_msg.edit_text(f"❌ **Git error:** `{str(e)}`", parse_mode=ParseMode.MARKDOWN)
         return
 
-    # Step 2: Install dependencies
+    # Step 2: Install dependencies (async)
     try:
-        # Detect if running in venv
         if os.path.exists("venv/bin/pip"):
             pip_cmd = "./venv/bin/pip install -r requirements.txt --quiet"
+        elif os.path.exists("venv/Scripts/pip.exe"):
+            pip_cmd = "venv\\Scripts\\pip install -r requirements.txt --quiet"
         else:
-            pip_cmd = "pip install -r requirements.txt --quiet"
+            pip_cmd = f"{sys.executable} -m pip install -r requirements.txt --quiet"
 
-        pip_result = srun(pip_cmd, shell=True, capture_output=True, text=True, cwd=os.getcwd())
-
-        if pip_result.returncode != 0:
-            LOGGER.warning(f"Pip install warning: {pip_result.stderr[:200]}")
+        rc, _, stderr = await _run_shell(pip_cmd)
+        if rc != 0:
+            LOGGER.warning(f"Pip install warning: {stderr[:200]}")
     except Exception as e:
         LOGGER.warning(f"Pip install error: {e}")
 
@@ -98,15 +128,24 @@ async def update_bot(bot: Client, message: Message):
 
     LOGGER.info("Bot update triggered by owner. Restarting...")
 
-    # Step 5: Restart the process
+    # Step 5: Properly stop the bot, then restart
     await asyncio.sleep(1)
 
     # Determine the correct python executable
     if os.path.exists("venv/bin/python3"):
-        python = "./venv/bin/python3"
+        python = os.path.abspath("venv/bin/python3")
+    elif os.path.exists("venv/Scripts/python.exe"):
+        python = os.path.abspath("venv\\Scripts\\python.exe")
     else:
         python = sys.executable
 
+    # Stop the bot client gracefully before exec
+    try:
+        await bot.stop()
+    except Exception:
+        pass
+
+    # Replace current process with fresh one
     os.execv(python, [python, "-m", "bot"])
 
 

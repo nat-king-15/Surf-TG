@@ -143,7 +143,7 @@ async def help_command(bot: Client, message: Message):
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("💎 Plans", callback_data="show_plans"),
-             InlineKeyboardButton("⚙️ Settings", callback_data="st_menu")],
+             InlineKeyboardButton("⚙️ Settings", callback_data="sett|back")],
         ]),
     )
 
@@ -192,7 +192,7 @@ async def show_plans_callback(bot: Client, query: CallbackQuery):
     buttons = []
     for plan_key, plan_data in plans.items():
         text += f"• **{plan_data['l']}** — ⭐ {plan_data['s']} Stars\n"
-        buttons.append(InlineKeyboardButton(f"⭐ {plan_data['l']} ({plan_data['s']})", callback_data=f"buy|{plan_key}"))
+        buttons.append(InlineKeyboardButton(f"⭐ {plan_data['l']} ({plan_data['s']})", callback_data=f"p_{plan_key}"))
     text += "\n_Pay with Telegram Stars_ ⭐"
     keyboard = [[b] for b in buttons] + [[InlineKeyboardButton("⬅️ Back", callback_data="show_start")]]
     await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
@@ -245,6 +245,38 @@ async def show_start_callback(bot: Client, query: CallbackQuery):
         parse_mode=ParseMode.MARKDOWN,
     )
     await query.answer()
+
+
+@StreamBot.on_callback_query(filters.regex(r'^sett\|back$'))
+async def settings_back_callback(bot: Client, query: CallbackQuery):
+    """Show settings menu via callback (from start menu)."""
+    await query.message.edit_text(
+        "⚙️ **Customize settings for your files...**",
+        reply_markup=InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("📝 Set Chat ID", callback_data="st_chat"),
+                InlineKeyboardButton("🏷️ Set Rename Tag", callback_data="st_rename"),
+            ],
+            [
+                InlineKeyboardButton("📋 Set Caption", callback_data="st_caption"),
+                InlineKeyboardButton("🔄 Replace Words", callback_data="st_replace"),
+            ],
+            [
+                InlineKeyboardButton("🗑️ Remove Words", callback_data="st_delword"),
+                InlineKeyboardButton("🔄 Reset Settings", callback_data="st_reset"),
+            ],
+            [
+                InlineKeyboardButton("🖼️ Set Thumbnail", callback_data="st_thumb"),
+                InlineKeyboardButton("❌ Remove Thumbnail", callback_data="st_remthumb"),
+            ],
+            [
+                InlineKeyboardButton("⬅️ Back", callback_data="show_start"),
+            ],
+        ]),
+        parse_mode=ParseMode.MARKDOWN,
+    )
+    await query.answer()
+
 
 @StreamBot.on_message(filters.command('index'))
 async def start(bot: Client, message: Message):
