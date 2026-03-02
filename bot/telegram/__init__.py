@@ -23,8 +23,6 @@ UserBot = Client(
     sleep_threshold=Telegram.SLEEP_THRESHOLD,
     no_updates=True,
     in_memory=True,
-    max_concurrent_transmissions=10,
-    workers=Telegram.WORKERS,
 )
 
 multi_clients = {}

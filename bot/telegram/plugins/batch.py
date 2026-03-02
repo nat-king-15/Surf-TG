@@ -83,8 +83,7 @@ async def update_batch_progress(uid: int, current: int, success: int):
     if str(uid) in ACTIVE_USERS:
         ACTIVE_USERS[str(uid)]["current"] = current
         ACTIVE_USERS[str(uid)]["success"] = success
-        if current % 5 == 0:  # Save every 5 msgs to reduce file I/O
-            await _save_active_users()
+        await _save_active_users()
 
 
 async def request_cancel(uid: int) -> bool:
@@ -134,9 +133,6 @@ async def get_user_bot(uid: int) -> Optional[Client]:
             api_hash=Telegram.API_HASH,
             in_memory=True,
             no_updates=True,
-            max_concurrent_transmissions=10,
-            workers=8,
-            sleep_threshold=Telegram.SLEEP_THRESHOLD,
         )
         await bot.start()
         USER_BOTS[uid] = bot
@@ -161,9 +157,6 @@ async def get_user_client(uid: int) -> Optional[Client]:
             api_hash=Telegram.API_HASH,
             session_string=ss,
             in_memory=True,
-            max_concurrent_transmissions=10,
-            workers=8,
-            sleep_threshold=Telegram.SLEEP_THRESHOLD,
         )
         await client.start()
         # Refresh dialogs so private chats resolve
@@ -207,7 +200,15 @@ async def get_msg(ubot: Client, uclient: Optional[Client], chat_id, msg_id: int,
                         return msg
                 except Exception:
                     continue
-            # Dialogs already loaded in get_user_client(), skip redundant refresh
+            # Final fallback — refresh dialogs
+            try:
+                async for _ in uclient.get_dialogs(limit=200):
+                    pass
+                msg = await uclient.get_messages(chat_id, msg_id)
+                if msg and not getattr(msg, "empty", False):
+                    return msg
+            except Exception:
+                pass
             return None
     except Exception as e:
         LOGGER.error(f"get_msg error: {e}")
@@ -223,52 +224,47 @@ def sanitize_filename(filename: str) -> str:
 
 
 async def progress(current, total, bot, chat_id, msg_id, start_time, batch_current=0, batch_total=0):
-    """Progress callback for downloads/uploads — time-based to avoid FloodWait."""
-    now = time.time()
-    elapsed = now - start_time
+    """Progress callback for downloads/uploads."""
     pct = current / total * 100
-    last_edit_time = PROGRESS.get(msg_id, 0)
+    interval = 10 if total >= 100 * 1024**2 else 20 if total >= 50 * 1024**2 else 30
+    step = int(pct // interval) * interval
+    if msg_id not in PROGRESS or PROGRESS[msg_id] != step or pct >= 100:
+        PROGRESS[msg_id] = step
+        c_mb = current / 1024**2
+        t_mb = total / 1024**2
+        bar = "🟢" * int(pct / 10) + "🔴" * (10 - int(pct / 10))
+        elapsed = time.time() - start_time
+        speed = current / elapsed / 1024**2 if elapsed > 0 else 0
+        eta = time.strftime("%M:%S", time.gmtime((total - current) / (speed * 1024**2))) if speed > 0 else "00:00"
+        
+        batch_text = ""
+        if batch_total > 1:
+            batch_text = f"📦 **Batch**: {batch_current}/{batch_total}\n"
 
-    # Only edit every 8 seconds or at completion — prevents FloodWait delays
-    if now - last_edit_time < 8 and current < total:
-        return
-    PROGRESS[msg_id] = now
-
-    c_mb = current / 1024**2
-    t_mb = total / 1024**2
-    bar = "🟢" * int(pct / 10) + "🔴" * (10 - int(pct / 10))
-    speed = current / elapsed / 1024**2 if elapsed > 0 else 0
-    eta = time.strftime("%M:%S", time.gmtime((total - current) / (speed * 1024**2))) if speed > 0 else "00:00"
-
-    batch_text = ""
-    if batch_total > 1:
-        batch_text = f"📦 **Batch**: {batch_current}/{batch_total}\n"
-
-    try:
-        await bot.edit_message_text(
-            chat_id, msg_id,
-            f"__**Processing...**__\n\n{bar}\n\n"
-            f"{batch_text}"
-            f"⚡ **Completed**: {c_mb:.2f} MB / {t_mb:.2f} MB\n"
-            f"📊 **Done**: {pct:.2f}%\n"
-            f"🚀 **Speed**: {speed:.2f} MB/s\n"
-            f"⏳ **ETA**: {eta}",
-        )
-    except Exception:
-        pass
-    if current >= total:
-        PROGRESS.pop(msg_id, None)
+        try:
+            await bot.edit_message_text(
+                chat_id, msg_id,
+                f"__**Processing...**__\n\n{bar}\n\n"
+                f"{batch_text}"
+                f"⚡ **Completed**: {c_mb:.2f} MB / {t_mb:.2f} MB\n"
+                f"📊 **Done**: {pct:.2f}%\n"
+                f"🚀 **Speed**: {speed:.2f} MB/s\n"
+                f"⏳ **ETA**: {eta}",
+            )
+        except Exception:
+            pass
+        if pct >= 100:
+            PROGRESS.pop(msg_id, None)
 
 
 # ═══════════════════════════════════════════════════════════════════
 # Process a single fetched message → download + upload
 # ═══════════════════════════════════════════════════════════════════
 
-async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, chat_ident, batch_current=0, batch_total=0, settings=None):
+async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, chat_ident, batch_current=0, batch_total=0):
     """Download a message and re-upload it to the destination chat."""
     try:
-        if settings is None:
-            settings = await db.get_settings(uid)
+        settings = await db.get_settings(uid)
         cfg_chat = settings.get("chat_id")
         target_chat = int(dest_chat_id)
         reply_to = None
@@ -312,8 +308,18 @@ async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, ch
                 
             progress_args = (bot_client, int(dest_chat_id), prog_msg.id, start_time, batch_current, batch_total)
 
-            # Skip redundant re-fetch — messages are pre-fetched fresh in batch
-            # FileReferenceExpired is handled below as a retry
+            # Re-fetch message right before download to get a fresh file reference
+            try:
+                fresh_msg = await uclient.get_messages(msg.chat.id, msg.id)
+                if fresh_msg and not getattr(fresh_msg, "empty", False):
+                    msg = fresh_msg
+            except Exception:
+                try:
+                    fresh_msg = await bot_client.get_messages(msg.chat.id, msg.id)
+                    if fresh_msg and not getattr(fresh_msg, "empty", False):
+                        msg = fresh_msg
+                except Exception:
+                    pass
 
             try:
                 downloaded = await uclient.download_media(
@@ -364,13 +370,8 @@ async def process_msg(bot_client, uclient, msg, dest_chat_id, link_type, uid, ch
                 audio_exts = {".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma", ".m4a", ".opus"}
 
                 if msg.video or (msg.document and ext in video_exts):
-                    # Parallel metadata + thumbnail generation for speed
-                    async def _noop():
-                        return None
-                    meta_task = get_video_metadata(downloaded)
-                    thumb_task = generate_thumbnail(downloaded) if not thumb else _noop()
-                    meta, gen_th = await asyncio.gather(meta_task, thumb_task)
-                    th = thumb or gen_th
+                    meta = await get_video_metadata(downloaded)
+                    th = thumb or await generate_thumbnail(downloaded)
                     await bot_client.send_video(
                         target_chat, video=downloaded, caption=final_text,
                         thumb=th, width=meta["width"], height=meta["height"],
@@ -646,45 +647,6 @@ async def batch_text_handler(bot: Client, message: Message):
         })
 
         try:
-            # --- Optimization: Cache settings once ---
-            settings = await db.get_settings(uid)
-
-            # --- Optimization: Pre-fetch messages in bulk ---
-            all_msg_ids = list(range(start_id, start_id + count))
-            prefetched = {}
-
-            # Resolve peer before bulk fetch (fixes PEER_ID_INVALID)
-            resolved_chat = chat_id
-            try:
-                cid = int(chat_id) if str(chat_id).lstrip('-').isdigit() else chat_id
-                # Try to resolve the peer by getting the chat
-                await uclient.get_chat(cid)
-                resolved_chat = cid
-                LOGGER.info(f"Peer resolved: {resolved_chat}")
-            except Exception:
-                # Fallback: refresh dialogs to discover the peer
-                try:
-                    LOGGER.info("Resolving peer via dialogs refresh...")
-                    async for _ in uclient.get_dialogs(limit=200):
-                        pass
-                    cid = int(chat_id) if str(chat_id).lstrip('-').isdigit() else chat_id
-                    resolved_chat = cid
-                except Exception as e:
-                    LOGGER.warning(f"Peer resolve failed: {e}, will fetch individually")
-
-            LOGGER.info(f"Pre-fetching {count} messages in bulk for user {uid}...")
-            for chunk_start in range(0, len(all_msg_ids), 100):
-                chunk_ids = all_msg_ids[chunk_start:chunk_start + 100]
-                try:
-                    msgs = await uclient.get_messages(resolved_chat, chunk_ids)
-                    for m in msgs:
-                        if m and not getattr(m, "empty", False):
-                            prefetched[m.id] = m
-                except Exception as e:
-                    LOGGER.warning(f"Bulk fetch chunk failed: {e}, will fetch individually")
-                    break  # Stop trying bulk, fallback to individual
-            LOGGER.info(f"Pre-fetched {len(prefetched)}/{count} messages")
-
             for j in range(count):
                 if should_cancel(uid):
                     await status.edit(f"Cancelled at {j}/{count}. Success: {success}")
@@ -694,35 +656,22 @@ async def batch_text_handler(bot: Client, message: Message):
                 mid = start_id + j
 
                 try:
-                    # Use pre-fetched message, fallback to individual fetch
-                    msg = prefetched.get(mid)
-                    if not msg:
-                        msg = await get_msg(ubot, uclient, chat_id, mid, lt)
+                    msg = await get_msg(ubot, uclient, chat_id, mid, lt)
                     if msg:
-                        res = await process_msg(ubot, uclient, msg, str(message.chat.id), lt, uid, chat_id, j+1, count, settings=settings)
+                        res = await process_msg(ubot, uclient, msg, str(message.chat.id), lt, uid, chat_id, j+1, count)
                         if "Done" in res or "Sent" in res:
                             success += 1
+                            await db.increment_usage(uid)
                 except Exception as e:
                     try:
                         await status.edit(f"{j+1}/{count}: Error - {str(e)[:30]}")
                     except Exception:
                         pass
 
-                await asyncio.sleep(3)
+                await asyncio.sleep(10)
 
             if j + 1 == count:
                 await message.reply_text(f"Batch Completed ✅ Success: {success}/{count}")
-
-            # --- Optimization: Batch increment usage at end ---
-            if success > 0:
-                from datetime import datetime
-                today = datetime.utcnow().strftime("%Y-%m-%d")
-                await db.daily_usage.find_one_and_update(
-                    {"_id": f"{uid}_{today}"},
-                    {"$inc": {"count": success}},
-                    upsert=True
-                )
         finally:
-            await _save_active_users()  # Final save
             await remove_active_batch(uid)
             CONV_STATE.pop(uid, None)
