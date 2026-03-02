@@ -652,16 +652,37 @@ async def batch_text_handler(bot: Client, message: Message):
             # --- Optimization: Pre-fetch messages in bulk ---
             all_msg_ids = list(range(start_id, start_id + count))
             prefetched = {}
+
+            # Resolve peer before bulk fetch (fixes PEER_ID_INVALID)
+            resolved_chat = chat_id
+            try:
+                cid = int(chat_id) if str(chat_id).lstrip('-').isdigit() else chat_id
+                # Try to resolve the peer by getting the chat
+                await uclient.get_chat(cid)
+                resolved_chat = cid
+                LOGGER.info(f"Peer resolved: {resolved_chat}")
+            except Exception:
+                # Fallback: refresh dialogs to discover the peer
+                try:
+                    LOGGER.info("Resolving peer via dialogs refresh...")
+                    async for _ in uclient.get_dialogs(limit=200):
+                        pass
+                    cid = int(chat_id) if str(chat_id).lstrip('-').isdigit() else chat_id
+                    resolved_chat = cid
+                except Exception as e:
+                    LOGGER.warning(f"Peer resolve failed: {e}, will fetch individually")
+
             LOGGER.info(f"Pre-fetching {count} messages in bulk for user {uid}...")
             for chunk_start in range(0, len(all_msg_ids), 100):
                 chunk_ids = all_msg_ids[chunk_start:chunk_start + 100]
                 try:
-                    msgs = await uclient.get_messages(chat_id, chunk_ids)
+                    msgs = await uclient.get_messages(resolved_chat, chunk_ids)
                     for m in msgs:
                         if m and not getattr(m, "empty", False):
                             prefetched[m.id] = m
                 except Exception as e:
                     LOGGER.warning(f"Bulk fetch chunk failed: {e}, will fetch individually")
+                    break  # Stop trying bulk, fallback to individual
             LOGGER.info(f"Pre-fetched {len(prefetched)}/{count} messages")
 
             for j in range(count):
