@@ -117,6 +117,10 @@ HELP_TEXT = """📖 **Surf-TG Commands**
   ├ Word Replacements, Delete Words
   └ Custom Thumbnail
 
+**🔑 Token Generation (Premium)**
+• `/getkey` → Bypass and auto-generate your MyStudyHub access token (Limit: 1 per 24 hours)
+• `/bstatus` → View the bypass bot queue and active processing status
+
 **💎 Premium**
 • `/plans` → view premium plans
 • `/mystatus` → your account status

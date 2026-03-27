@@ -22,6 +22,7 @@ class Database:
         self.user_sessions = self.db["user_sessions"]
         self.daily_usage = self.db["daily_usage"]
         self.plans = self.db["plans"]
+        self.token_history = self.db["token_history"]
         # Indexes for browse performance - handled async separately or just defined here
         # Motor create_index is awaitable, but __init__ cannot be async.
         # We can rely on background index creation or call a setup method.
@@ -612,6 +613,25 @@ class Database:
 
         used = await self.get_usage(user_id)
         return max(0, limit - used)
+
+    async def get_last_token_time(self, user_id: int):
+        """Get the datetime of the last successful token generation for a user."""
+        doc = await self.token_history.find_one(
+            {"user_id": user_id},
+            sort=[("timestamp", DESCENDING)]
+        )
+        if doc:
+            return doc.get("timestamp")
+        return None
+
+    async def save_token_history(self, user_id: int, token: str, mode: str):
+        """Record successful token generation."""
+        await self.token_history.insert_one({
+            "user_id": user_id,
+            "token": token,
+            "mode": mode,
+            "timestamp": datetime.utcnow()
+        })
 
     async def is_channel_bound_to_premium(self, chat_id: int) -> bool:
         """Check if chat_id is linked to any active premium user's settings."""

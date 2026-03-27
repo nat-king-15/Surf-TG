@@ -22,6 +22,7 @@ class Telegram:
     SLEEP_THRESHOLD = int(getenv('SLEEP_THRESHOLD', '60'))
     WORKERS = int(getenv('WORKERS', '10'))
     MULTI_CLIENT = getenv('MULTI_CLIENT', 'False')
+    MAX_CONCURRENT = int(getenv('MAX_CONCURRENT', '15'))
     HIDE_CHANNEL = getenv('HIDE_CHANNEL', 'False')
     OWNER_ID = int(getenv('OWNER_ID', '0'))
     SUDO_USERS = {int(x) for x in getenv("SUDO_USERS", "").split() if x.isdigit()}
