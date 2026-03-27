@@ -282,9 +282,9 @@ def bypass(arolinks_url: str, headless: bool = True):
             except Exception:
                 pass
 
-        # ── Wait for token (max 40s) ──────────────────────────────────────────
+        # ── Wait for token (max 15s) ──────────────────────────────────────────
         log("Waiting for token from /links/go…")
-        for i in range(40):
+        for i in range(15):
             tok, verify = _check_token_in_page(driver)
             if tok:
                 result["token"]      = tok
@@ -294,6 +294,44 @@ def bypass(arolinks_url: str, headless: bool = True):
             if i % 5 == 0:
                 log(f"  [{i}s] {driver.current_url[:70]}")
             time.sleep(1)
+
+        # ── VPS Alternative Route: Bypass /links/go block ────────────────────
+        if not result["token"]:
+            log("Normal route failed (VPS IP block). Trying VPS Alternative Route...", "w")
+            log(f"Navigating directly to: {arolinks_url}")
+            try:
+                driver.get(arolinks_url)
+                log("Waiting 10s for 'Get Link' button to become active...")
+                time.sleep(10.5)
+                
+                # Look for the get link button using XPath (case-insensitive)
+                try:
+                    get_link = driver.find_element(By.XPATH, "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'get link')]")
+                    if get_link and get_link.is_displayed():
+                        log("Found Get Link button! Clicking...", "o")
+                        try:
+                            get_link.click()
+                        except Exception:
+                            driver.execute_script("arguments[0].click();", get_link)
+                            
+                        time.sleep(5)
+                        
+                        # Search all pages/tabs in context
+                        for handle in driver.window_handles:
+                            if result["token"]: break
+                            driver.switch_to.window(handle)
+                            tok, verify = _check_token_in_page(driver)
+                            if tok:
+                                result["token"]      = tok
+                                result["verify_url"] = verify or driver.current_url
+                                break
+                    else:
+                        log("Get Link button not visible on alternative route.", "e")
+                except Exception as e:
+                    log("Get Link button not found on alternative route.", "e")
+                    
+            except Exception as e:
+                log(f"VPS Alternative Route failed: {e}", "e")
 
     finally:
         driver.quit()

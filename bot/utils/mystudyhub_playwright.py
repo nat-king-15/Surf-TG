@@ -246,7 +246,7 @@ async def bypass(arolinks_url: str, headless: bool = True, use_chrome: bool = Fa
 
         # ── Wait for /links/go response → token ──────────────────────────────
         log("Waiting for token from /links/go…")
-        for i in range(40):
+        for i in range(15):
             if result["token"]: break
             cur = page.url
             tok = TOKEN_RE.search(cur)
@@ -270,6 +270,55 @@ async def bypass(arolinks_url: str, headless: bool = True, use_chrome: bool = Fa
             if i % 5 == 0:
                 log(f"  [{i}s] {cur[:70]}")
             await page.wait_for_timeout(1000)
+
+        # ── VPS Alternative Route: Bypass /links/go block ────────────────────
+        if not result["token"]:
+            log("Normal route failed (VPS IP block). Trying VPS Alternative Route...", "w")
+            log(f"Navigating directly to: {arolinks_url}")
+            try:
+                await page.goto(arolinks_url, wait_until="domcontentloaded", timeout=20000)
+                log("Waiting 10s for 'Get Link' button to become active...")
+                await page.wait_for_timeout(10500)
+                
+                # Look for the get link button
+                get_link = page.locator("a:has-text('Get Link'), a:has-text('GET LINK')").first
+                if await get_link.count() > 0 and await get_link.is_visible():
+                    log("Found Get Link button! Clicking...", "o")
+                    try:
+                        await get_link.click()
+                    except Exception:
+                        await page.evaluate("arguments[0].click()", await get_link.element_handle())
+                        
+                    await page.wait_for_timeout(5000)
+                    
+                    # Search all pages in context (handles new tabs/popups)
+                    for p in ctx.pages:
+                        if result["token"]: break
+                        try:
+                            tok = TOKEN_RE.search(p.url)
+                            if tok:
+                                result["token"] = tok.group(1)
+                                result["verify_url"] = p.url
+                                break
+                            
+                            content = await p.content()
+                            tok = TOKEN_RE.search(content)
+                            if tok:
+                                result["token"] = tok.group(1)
+                                break
+                                
+                            for href in await p.eval_on_selector_all("a[href]", "e=>e.map(x=>x.href)"):
+                                tok2 = TOKEN_RE.search(href)
+                                if tok2:
+                                    result["token"] = tok2.group(1)
+                                    break
+                        except Exception:
+                            pass
+                else:
+                    log("Get Link button not found on alternative route.", "e")
+                    
+            except Exception as e:
+                log(f"VPS Alternative Route failed: {e}", "e")
 
         await browser.close()
     return result
